@@ -1653,46 +1653,53 @@ function removeVariacaoRow(i) {
 }
 
 async function salvarProduto(id) {
-  const nome = document.getElementById('prod-nome').value;
+  const nome = document.getElementById('prod-nome').value.trim();
   const preco_venda = parseFloat(document.getElementById('prod-preco').value);
   if (!nome || !preco_venda) return toast('Nome e preço são obrigatórios', 'error');
 
-  // Coleta variações
   const variacoes = [];
   document.querySelectorAll('[id^="var-row-"]').forEach(row => {
     const idx = row.id.split('-').pop();
-    const tam = document.getElementById('var-tam-' + idx)?.value;
     variacoes.push({
-      tamanho: tam, cor: document.getElementById('var-cor-' + idx)?.value,
+      tamanho: document.getElementById('var-tam-' + idx)?.value || null,
+      cor: document.getElementById('var-cor-' + idx)?.value || null,
       estoque: parseInt(document.getElementById('var-est-' + idx)?.value || 0),
       estoque_minimo: parseInt(document.getElementById('var-min-' + idx)?.value || 5),
-      codigo_barras: document.getElementById('var-cod-' + idx)?.value
+      codigo_barras: document.getElementById('var-cod-' + idx)?.value || null
     });
   });
 
   const dados = {
-    nome, marca: document.getElementById('prod-marca').value,
+    nome,
+    marca: document.getElementById('prod-marca').value || null,
     categoria_id: document.getElementById('prod-cat').value || null,
     genero: document.getElementById('prod-genero').value,
-    preco_venda, preco_custo: parseFloat(document.getElementById('prod-custo').value || 0),
-    descricao: document.getElementById('prod-desc').value,
+    preco_venda,
+    preco_custo: parseFloat(document.getElementById('prod-custo').value || 0),
+    descricao: document.getElementById('prod-desc').value || null,
     icone: document.getElementById('prod-icone')?.value || '👗',
     variacoes
   };
 
-  // Atualiza local (demo)
-  if (id) {
-    const idx = STATE.produtos.findIndex(p => p.id === id);
-    if (idx !== -1) STATE.produtos[idx] = { ...STATE.produtos[idx], ...dados, variacoes };
-    toast('Produto atualizado!', 'success');
-  } else {
-    const newId = 'p' + Date.now();
-    STATE.produtos.push({ id: newId, ...dados, ativo: true, categorias: { nome: STATE.categorias.find(c=>c.id===dados.categoria_id)?.nome||'' }, criado_em: new Date().toISOString() });
-    toast('Produto criado!', 'success');
-  }
+  const btn = document.querySelector('#modal-footer .btn-primary');
+  if (btn) { btn.textContent = 'Salvando...'; btn.disabled = true; }
 
-  closeModal();
-  renderProdutos();
+  try {
+    if (id) {
+      await api('PUT', '/api/produtos/' + id, dados);
+      toast('Produto atualizado!', 'success');
+    } else {
+      await api('POST', '/api/produtos', dados);
+      toast('Produto criado!', 'success');
+    }
+    closeModal();
+    await carregarDadosBase();
+    renderProdutos();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.textContent = '💾 Salvar'; btn.disabled = false; }
+  }
 }
 
 function editarProduto(id) { openProdutoModal(id); }
@@ -1807,14 +1814,24 @@ function ajustarEstoque(prodId, varId, atual) {
   `);
 }
 
-function confirmarAjuste(prodId, varId) {
+async function confirmarAjuste(prodId, varId) {
   const novoEst = parseInt(document.getElementById('novo-estoque').value);
   const prod = STATE.produtos.find(p => p.id === prodId);
-  const variac = prod?.variacoes?.find(v => v.id === varId);
-  if (variac) { variac.estoque = novoEst; }
-  closeModal();
-  toast('Estoque atualizado!', 'success');
-  renderEstoque();
+  if (!prod) return toast('Produto não encontrado', 'error');
+
+  const variacoes = (prod.variacoes || []).map(v =>
+    v.id === varId ? { ...v, estoque: novoEst } : v
+  );
+
+  try {
+    await api('PUT', '/api/produtos/' + prodId, { variacoes });
+    toast('Estoque atualizado!', 'success');
+    closeModal();
+    await carregarDadosBase();
+    renderEstoque();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
 // ============================================================
@@ -1896,26 +1913,38 @@ function openClienteModal(id) {
   `);
 }
 
-function salvarCliente(id) {
-  const nome = document.getElementById('cli-nome').value;
+async function salvarCliente(id) {
+  const nome = document.getElementById('cli-nome').value.trim();
   if (!nome) return toast('Nome obrigatório', 'error');
   const dados = {
-    nome, cpf: document.getElementById('cli-cpf').value,
-    email: document.getElementById('cli-email').value,
-    telefone: document.getElementById('cli-tel').value,
-    data_nascimento: document.getElementById('cli-nasc').value,
-    genero: document.getElementById('cli-genero').value,
-    observacoes: document.getElementById('cli-obs').value
+    nome,
+    cpf: document.getElementById('cli-cpf').value || null,
+    email: document.getElementById('cli-email').value || null,
+    telefone: document.getElementById('cli-tel').value || null,
+    data_nascimento: document.getElementById('cli-nasc').value || null,
+    genero: document.getElementById('cli-genero').value || null,
+    observacoes: document.getElementById('cli-obs').value || null
   };
-  if (id) {
-    const idx = STATE.clientes.findIndex(c => c.id === id);
-    if (idx !== -1) STATE.clientes[idx] = { ...STATE.clientes[idx], ...dados };
-    toast('Cliente atualizado!', 'success');
-  } else {
-    STATE.clientes.push({ id: 'cl' + Date.now(), ...dados, ativo: true, total_compras: 0, num_compras: 0, pontos: 0 });
-    toast('Cliente cadastrado!', 'success');
+
+  const btn = document.querySelector('#modal-footer .btn-primary');
+  if (btn) { btn.textContent = 'Salvando...'; btn.disabled = true; }
+
+  try {
+    if (id) {
+      await api('PUT', '/api/clientes/' + id, dados);
+      toast('Cliente atualizado!', 'success');
+    } else {
+      await api('POST', '/api/clientes', dados);
+      toast('Cliente cadastrado!', 'success');
+    }
+    closeModal();
+    await carregarDadosBase();
+    renderClientes();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.textContent = '💾 Salvar'; btn.disabled = false; }
   }
-  closeModal(); renderClientes();
 }
 
 function verCliente(id) {
@@ -2081,27 +2110,39 @@ function openFuncModal(id) {
   `);
 }
 
-function salvarFunc(id) {
-  const nome = document.getElementById('func-nome').value;
+async function salvarFunc(id) {
+  const nome = document.getElementById('func-nome').value.trim();
   if (!nome) return toast('Nome obrigatório', 'error');
   const dados = {
-    nome, cargo: document.getElementById('func-cargo').value,
-    email: document.getElementById('func-email').value,
-    telefone: document.getElementById('func-tel').value,
-    salario_base: parseFloat(document.getElementById('func-sal').value||0),
-    comissao_pct: parseFloat(document.getElementById('func-com').value||0),
-    meta_mensal: parseFloat(document.getElementById('func-meta').value||0),
-    data_admissao: document.getElementById('func-admissao').value
+    nome,
+    cargo: document.getElementById('func-cargo').value || 'Vendedor',
+    email: document.getElementById('func-email').value || null,
+    telefone: document.getElementById('func-tel').value || null,
+    salario_base: parseFloat(document.getElementById('func-sal').value || 0),
+    comissao_pct: parseFloat(document.getElementById('func-com').value || 0),
+    meta_mensal: parseFloat(document.getElementById('func-meta').value || 0),
+    data_admissao: document.getElementById('func-admissao').value || null
   };
-  if (id) {
-    const idx = STATE.funcionarios.findIndex(f => f.id === id);
-    if (idx !== -1) STATE.funcionarios[idx] = { ...STATE.funcionarios[idx], ...dados };
-    toast('Funcionário atualizado!', 'success');
-  } else {
-    STATE.funcionarios.push({ id: 'f' + Date.now(), ...dados, ativo: true });
-    toast('Funcionário cadastrado!', 'success');
+
+  const btn = document.querySelector('#modal-footer .btn-primary');
+  if (btn) { btn.textContent = 'Salvando...'; btn.disabled = true; }
+
+  try {
+    if (id) {
+      await api('PUT', '/api/operacoes/funcionarios/' + id, dados);
+      toast('Funcionário atualizado!', 'success');
+    } else {
+      await api('POST', '/api/operacoes/funcionarios', dados);
+      toast('Funcionário cadastrado!', 'success');
+    }
+    closeModal();
+    await carregarDadosBase();
+    renderFuncionarios();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.textContent = '💾 Salvar'; btn.disabled = false; }
   }
-  closeModal(); renderFuncionarios();
 }
 
 // ============================================================
@@ -2153,12 +2194,23 @@ function renderComissoes() {
 // ============================================================
 //  FINANCEIRO
 // ============================================================
-function renderFinanceiro() {
+async function renderFinanceiro() {
+  loading();
+  let movs = [], cx = null;
+  try {
+    const [mRes, cxRes] = await Promise.allSettled([
+      api('GET', '/api/operacoes/movimentacoes?limit=100'),
+      api('GET', '/api/operacoes/caixa/atual')
+    ]);
+    movs = mRes.status === 'fulfilled' ? (mRes.value?.data || []) : [];
+    cx = cxRes.status === 'fulfilled' ? cxRes.value : null;
+    STATE.caixaAtual = cx;
+  } catch(e) {}
+
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
-  const entradas = STATE.movimentacoes.filter(m => m.tipo === 'entrada').reduce((s, m) => s + m.valor, 0);
-  const saidas = STATE.movimentacoes.filter(m => m.tipo === 'saida').reduce((s, m) => s + m.valor, 0);
+  const entradas = movs.filter(m => m.tipo === 'entrada').reduce((s, m) => s + m.valor, 0);
+  const saidas = movs.filter(m => m.tipo === 'saida').reduce((s, m) => s + m.valor, 0);
   const saldo = entradas - saidas;
-  const cx = STATE.caixaAtual;
 
   setContent(`
     <div class="grid grid-3 mb-4">
@@ -2201,7 +2253,7 @@ function renderFinanceiro() {
           <span class="card-title">📊 Pagamentos por forma</span>
         </div>
         ${['dinheiro','pix','debito','credito','crediario'].map(p => {
-          const total = STATE.movimentacoes.filter(m => m.tipo==='entrada' && m.forma_pagamento===p).reduce((s,m)=>s+m.valor,0);
+          const total = movs.filter(m => m.tipo==='entrada' && m.forma_pagamento===p).reduce((s,m)=>s+m.valor,0);
           const pct = entradas > 0 ? (total/entradas*100).toFixed(0) : 0;
           return total > 0 ? `
             <div class="mb-2">
@@ -2224,7 +2276,7 @@ function renderFinanceiro() {
         <table>
           <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Forma</th><th>Valor</th></tr></thead>
           <tbody>
-            ${STATE.movimentacoes.map(m => `<tr>
+            ${movs.map(m => `<tr>
               <td class="text-sm text-muted">${new Date(m.criado_em).toLocaleDateString('pt-BR')}</td>
               <td><span class="badge ${m.tipo==='entrada'?'badge-green':'badge-red'}">${m.tipo}</span></td>
               <td class="text-sm">${m.categoria||'—'}</td>
@@ -2248,15 +2300,30 @@ function abrirCaixa() {
   `, 'modal-sm');
 }
 
-function confirmarAbrirCaixa() {
+async function confirmarAbrirCaixa() {
   const saldo = parseFloat(document.getElementById('caixa-inicial').value || 0);
-  STATE.caixaAtual = { id: 'cx' + Date.now(), status: 'aberto', saldo_inicial: saldo, aberto_em: new Date().toISOString(), total_vendas: 0, funcionarios: { nome: STATE.user.nome } };
-  closeModal(); toast('Caixa aberto!', 'success'); renderFinanceiro();
+  try {
+    await api('POST', '/api/operacoes/caixa/abrir', { saldo_inicial: saldo });
+    closeModal();
+    toast('Caixa aberto!', 'success');
+    renderFinanceiro();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
-function fecharCaixa() {
-  toast('Caixa fechado com sucesso!', 'success');
-  STATE.caixaAtual = null; renderFinanceiro();
+async function fecharCaixa() {
+  const cx = STATE.caixaAtual;
+  if (!cx) return toast('Nenhum caixa aberto', 'error');
+  if (!confirm('Confirma o fechamento do caixa?')) return;
+  try {
+    await api('POST', '/api/operacoes/caixa/fechar', { caixa_id: cx.id });
+    STATE.caixaAtual = null;
+    toast('Caixa fechado!', 'success');
+    renderFinanceiro();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
 function openSangria() {
@@ -2269,12 +2336,23 @@ function openSangria() {
   `, 'modal-sm');
 }
 
-function confirmarSangria() {
+async function confirmarSangria() {
   const val = parseFloat(document.getElementById('sangria-val').value || 0);
   const desc = document.getElementById('sangria-desc').value;
   if (val <= 0) return toast('Informe o valor', 'error');
-  STATE.movimentacoes.unshift({ id: 'm'+Date.now(), tipo: 'saida', categoria: 'sangria', descricao: desc || 'Sangria', valor: val, forma_pagamento: 'dinheiro', criado_em: new Date().toISOString() });
-  closeModal(); toast('Sangria registrada!', 'success'); renderFinanceiro();
+  const cx = STATE.caixaAtual;
+  try {
+    await api('POST', '/api/operacoes/caixa/sangria', {
+      caixa_id: cx?.id || null,
+      valor: val,
+      descricao: desc || 'Sangria de caixa'
+    });
+    closeModal();
+    toast('Sangria registrada!', 'success');
+    renderFinanceiro();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
 function openMovimentacaoModal() {
@@ -2294,31 +2372,40 @@ function openMovimentacaoModal() {
   `);
 }
 
-function salvarMovimentacao() {
-  const desc = document.getElementById('mov-desc').value;
+async function salvarMovimentacao() {
+  const desc = document.getElementById('mov-desc').value.trim();
   const val = parseFloat(document.getElementById('mov-valor').value || 0);
   if (!desc || val <= 0) return toast('Preencha descrição e valor', 'error');
-  STATE.movimentacoes.unshift({
-    id: 'm'+Date.now(),
-    tipo: document.getElementById('mov-tipo').value,
-    categoria: document.getElementById('mov-cat').value,
-    descricao: desc, valor: val,
-    forma_pagamento: 'dinheiro', criado_em: new Date().toISOString()
-  });
-  closeModal(); toast('Lançamento registrado!', 'success'); renderFinanceiro();
+  try {
+    await api('POST', '/api/operacoes/movimentacoes', {
+      tipo: document.getElementById('mov-tipo').value,
+      categoria: document.getElementById('mov-cat').value || 'outros',
+      descricao: desc,
+      valor: val,
+      forma_pagamento: 'dinheiro'
+    });
+    closeModal();
+    toast('Lançamento registrado!', 'success');
+    renderFinanceiro();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
 // ============================================================
 //  CREDIÁRIO
 // ============================================================
-function renderCrediario() {
+async function renderCrediario() {
+  loading();
+  let crediarios = [];
+  try {
+    const d = await api('GET', '/api/relatorios/crediario');
+    crediarios = Array.isArray(d) ? d : [];
+  } catch(e) {
+    setContent(`<div class="empty"><div class="empty-icon">⚠️</div><p class="empty-sub">${e.message}</p><button class="btn btn-primary" onclick="renderCrediario()">Tentar novamente</button></div>`);
+    return;
+  }
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
-  // Mock crediário
-  const crediarios = [
-    { id: 'cr1', cliente: 'Ana Paula Ferreira', venda: 'V-00010', total: 450, pago: 150, saldo: 300, parcelas: 3, parcelas_pagas: 1, status: 'ativo', vencimento: '2025-07-10' },
-    { id: 'cr2', cliente: 'Carlos Oliveira', venda: 'V-00008', total: 280, pago: 280, saldo: 0, parcelas: 2, parcelas_pagas: 2, status: 'quitado', vencimento: '2025-06-15' },
-    { id: 'cr3', cliente: 'Diana Lima', venda: 'V-00012', total: 189.90, pago: 0, saldo: 189.90, parcelas: 1, parcelas_pagas: 0, status: 'inadimplente', vencimento: '2025-05-30' }
-  ];
   const totalSaldo = crediarios.filter(c=>c.status!=='quitado').reduce((s,c)=>s+c.saldo,0);
 
   setContent(`
@@ -2333,8 +2420,8 @@ function renderCrediario() {
         <thead><tr><th>Cliente</th><th>Venda</th><th>Total</th><th>Pago</th><th>Saldo</th><th>Parcelas</th><th>Vencimento</th><th>Status</th><th>Ação</th></tr></thead>
         <tbody>
           ${crediarios.map(c => `<tr>
-            <td class="font-bold">${c.cliente}</td>
-            <td class="text-muted">${c.venda}</td>
+            <td class="font-bold">${c.clientes?.nome||'—'}</td>
+            <td class="text-muted">${c.vendas?.numero||'—'}</td>
             <td>${fmtR(c.total)}</td>
             <td style="color:var(--success)">${fmtR(c.pago)}</td>
             <td class="font-bold">${fmtR(c.saldo)}</td>
@@ -2572,18 +2659,26 @@ function renderConfiguracoes() {
   `);
 }
 
-function adicionarCategoria() {
+async function adicionarCategoria() {
   const val = document.getElementById('nova-cat').value.trim();
   if (!val) return toast('Digite o nome da categoria', 'error');
-  STATE.categorias.push({ id: 'c' + Date.now(), nome: val });
-  document.getElementById('nova-cat').value = '';
-  toast('Categoria adicionada!', 'success');
-  renderConfiguracoes();
+  try {
+    await api('POST', '/api/categorias', { nome: val });
+    document.getElementById('nova-cat').value = '';
+    toast('Categoria adicionada!', 'success');
+    await carregarDadosBase();
+    renderConfiguracoes();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
 }
 
-function removerCategoria(id) {
-  STATE.categorias = STATE.categorias.filter(c => c.id !== id);
-  renderConfiguracoes();
+async function removerCategoria(id) {
+  if (!confirm('Remover esta categoria?')) return;
+  try {
+    await api('DELETE', '/api/categorias/' + id);
+    toast('Removida!', 'success');
+    await carregarDadosBase();
+    renderConfiguracoes();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
 }
 
 // ============================================================
