@@ -688,15 +688,11 @@ let STATE = {
   user: null,
   loja: null,
   currentPage: 'dashboard',
-  // DEMO DATA
   produtos: [],
   clientes: [],
   funcionarios: [],
-  vendas: [],
   categorias: [],
-  movimentacoes: [],
   caixaAtual: null,
-  // PDV
   cart: [],
   cartCliente: null,
   cartFuncionario: null,
@@ -918,7 +914,7 @@ function startApp() {
 async function carregarDadosBase() {
   try {
     const [cats, prods, clis, funcs] = await Promise.allSettled([
-      api('GET', '/api/categorias/lista'),
+      api('GET', '/api/categorias'),
       api('GET', '/api/produtos?limit=200'),
       api('GET', '/api/clientes?limit=200'),
       api('GET', '/api/operacoes/funcionarios')
@@ -1484,7 +1480,7 @@ async function finalizarVenda() {
 }
 
 function openRecibo(venda, total) {
-  const cliente = STATE.clientes.find(c => c.id === STATE.cartCliente);
+  const cliente = STATE.clientes.find(c => c.id === STATE.cartCliente) || null;
   openModal('🧾 Comprovante de Venda', `
     <div style="text-align:center;padding:8px 0 20px">
       <div style="font-size:48px">✅</div>
@@ -1947,10 +1943,17 @@ async function salvarCliente(id) {
   }
 }
 
-function verCliente(id) {
-  const c = STATE.clientes.find(x => x.id === id);
+async function verCliente(id) {
+  const cl = STATE.clientes.find(x => x.id === id) || {};
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
-  const vendasCliente = STATE.vendas.filter(v => v.cliente_id === id);
+  let vendasCliente = [];
+  try {
+    const d = await api('GET', '/api/clientes/' + id);
+    vendasCliente = d.historico_vendas || [];
+    // Atualiza dados do cliente com os dados mais recentes
+    Object.assign(cl, d);
+  } catch(e) {}
+  const c = cl;
   openModal(`👤 ${c.nome}`, `
     <div class="grid grid-2 mb-4" style="gap:12px">
       <div style="background:var(--bg);padding:16px;border-radius:10px">
@@ -1985,8 +1988,17 @@ function verCliente(id) {
 // ============================================================
 //  VENDAS
 // ============================================================
-function renderVendas() {
+async function renderVendas() {
+  loading();
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+  let vendas = [];
+  try {
+    const d = await api('GET', '/api/vendas?limit=100');
+    vendas = d.data || [];
+  } catch(e) {
+    setContent(`<div class="empty"><div class="empty-icon">⚠️</div><p>${e.message}</p><button class="btn btn-primary" onclick="renderVendas()">Tentar novamente</button></div>`);
+    return;
+  }
   setContent(`
     <div class="card">
       <div class="card-header">
@@ -1995,27 +2007,28 @@ function renderVendas() {
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Nº</th><th>Cliente</th><th>Vendedor</th><th>Total</th><th>Pagamento</th><th>Status</th><th>Data</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Nº</th><th>Cliente</th><th>Vendedor</th><th>Total</th><th>Pagamento</th><th>Status</th><th>Data</th><th></th></tr></thead>
           <tbody>
-            ${STATE.vendas.map(v => `<tr>
+            ${vendas.length === 0 ? '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">Nenhuma venda ainda. <a href="#" onclick="navigate('pdv')" style="color:var(--primary)">Abrir PDV →</a></td></tr>' :
+            vendas.map(v => `<tr>
               <td class="font-bold">${v.numero}</td>
               <td>${v.clientes?.nome || '—'}</td>
               <td class="text-muted">${v.funcionarios?.nome || '—'}</td>
               <td class="font-bold">${fmtR(v.total)}</td>
               <td>${pagBadge(v.forma_pagamento)}</td>
               <td><span class="badge ${v.status==='finalizada'?'badge-green':v.status==='cancelada'?'badge-red':'badge-yellow'}">${v.status}</span></td>
-              <td class="text-sm text-muted">${new Date(v.criado_em).toLocaleDateString('pt-BR')} ${new Date(v.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td>
-              <td><button class="btn btn-ghost btn-sm" onclick="verVenda('${v.id}')">Ver</button></td>
+              <td class="text-sm text-muted">${new Date(v.criado_em).toLocaleDateString('pt-BR')}</td>
+              <td><button class="btn btn-ghost btn-sm" onclick='verVendaModal(${JSON.stringify(v).replace(/'/g,"&#39;")})'>Ver</button></td>
             </tr>`).join('')}
           </tbody>
         </table>
       </div>
     </div>
   `);
+  window._vendas = vendas;
 }
 
-function verVenda(id) {
-  const v = STATE.vendas.find(x => x.id === id);
+function verVendaModal(v) {
   const fmtR = val => `R$ ${(val||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   openModal(`🧾 Venda ${v.numero}`, `
     <div class="flex gap-3 mb-4">
@@ -2148,18 +2161,33 @@ async function salvarFunc(id) {
 // ============================================================
 //  COMISSÕES
 // ============================================================
-function renderComissoes() {
+async function renderComissoes() {
+  loading();
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   const mes = new Date().getMonth() + 1;
   const ano = new Date().getFullYear();
 
-  const comissoes = STATE.funcionarios.filter(f=>f.ativo).map(f => {
-    const vendasFunc = STATE.vendas.filter(v => v.funcionario_id === f.id && v.status === 'finalizada');
-    const totalVendas = vendasFunc.reduce((s, v) => s + v.total, 0);
-    const comissao = totalVendas * (f.comissao_pct / 100);
-    const pctMeta = f.meta_mensal > 0 ? Math.min(100, (totalVendas / f.meta_mensal) * 100) : 0;
-    return { ...f, totalVendas, comissao, numVendas: vendasFunc.length, pctMeta };
-  });
+  let comissoes = [];
+  try {
+    const funcs = await api('GET', '/api/operacoes/funcionarios');
+    const resultados = await Promise.allSettled(
+      funcs.map(f => api('GET', `/api/operacoes/funcionarios/${f.id}/comissoes?mes=${mes}&ano=${ano}`))
+    );
+    comissoes = funcs.map((f, i) => {
+      const r = resultados[i].status === 'fulfilled' ? resultados[i].value : {};
+      return {
+        nome: f.nome, cargo: f.cargo,
+        totalVendas: r.total_vendas || 0,
+        comissao: r.comissao_valor || 0,
+        numVendas: r.num_vendas || 0,
+        pctMeta: parseFloat(r.percentual_meta || 0),
+        meta_mensal: f.meta_mensal || 0
+      };
+    });
+  } catch(e) {
+    setContent(`<div class="empty"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`);
+    return;
+  }
 
   setContent(`
     <div class="card mb-4">
@@ -2455,11 +2483,13 @@ function registrarPagamento(id) {
 // ============================================================
 //  PEDIDOS
 // ============================================================
-function renderPedidos() {
-  const pedidos = [
-    { id: 'pd1', numero: 'P-00001', cliente: 'Ana Paula Ferreira', tipo: 'reserva', status: 'aberto', total: 219.90, criado_em: new Date().toISOString() },
-    { id: 'pd2', numero: 'P-00002', cliente: 'Beatriz Santos', tipo: 'balcao', status: 'em_separacao', total: 89.90, criado_em: new Date().toISOString() }
-  ];
+async function renderPedidos() {
+  loading();
+  let pedidos = [];
+  try {
+    const d = await api('GET', '/api/pedidos');
+    pedidos = Array.isArray(d) ? d : [];
+  } catch(e) {}
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   const stMap = { aberto:'badge-blue', em_separacao:'badge-yellow', pronto:'badge-green', entregue:'badge-gray', cancelado:'badge-red' };
   const stLabel = { aberto:'Aberto', em_separacao:'Em Separação', pronto:'Pronto', entregue:'Entregue', cancelado:'Cancelado' };
@@ -2476,7 +2506,7 @@ function renderPedidos() {
           <tbody>
             ${pedidos.map(p => `<tr>
               <td class="font-bold">${p.numero}</td>
-              <td>${p.cliente}</td>
+              <td>${p.clientes?.nome||'—'}</td>
               <td><span class="badge badge-purple">${p.tipo}</span></td>
               <td class="font-bold">${fmtR(p.total)}</td>
               <td><span class="badge ${stMap[p.status]}">${stLabel[p.status]}</span></td>
@@ -2514,11 +2544,33 @@ function openPedidoModal() {
     <div class="form-group"><label>Observações</label><textarea id="ped-obs" rows="2" placeholder="Tamanhos desejados, prazo de retirada..."></textarea></div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-primary" onclick="closeModal();toast('Pedido criado!','success')">Criar Pedido</button>
+    <button class="btn btn-primary" onclick="salvarPedido()">Criar Pedido</button>
   `);
 }
 
-function mudarStatusPedido(id, status) { toast('Status atualizado!', 'success'); }
+async function salvarPedido() {
+  const cli = document.getElementById('ped-cli')?.value || null;
+  const tipo = document.getElementById('ped-tipo')?.value || 'balcao';
+  const func = document.getElementById('ped-fn')?.value || null;
+  const obs = document.getElementById('ped-obs')?.value || null;
+  try {
+    await api('POST', '/api/pedidos', {
+      cliente_id: cli && cli.length > 10 ? cli : null,
+      funcionario_id: func && func.length > 10 ? func : null,
+      tipo, observacoes: obs
+    });
+    toast('Pedido criado!', 'success');
+    closeModal();
+    renderPedidos();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+async function mudarStatusPedido(id, status) {
+  try {
+    await api('PUT', '/api/pedidos/' + id, { status });
+    toast('Status atualizado!', 'success');
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
 
 // ============================================================
 //  RELATÓRIOS
@@ -2601,7 +2653,7 @@ function renderRelatorios() {
 // ============================================================
 //  CONFIGURAÇÕES
 // ============================================================
-function renderConfiguracoes() {
+async function renderConfiguracoes() {
   const l = STATE.loja;
   setContent(`
     <div class="grid grid-2">
@@ -2657,6 +2709,24 @@ function renderConfiguracoes() {
       </div>
     </div>
   `);
+}
+
+async function salvarDadosLoja() {
+  try {
+    await api('PUT', '/api/loja', {
+      nome: document.getElementById('cfg-nome')?.value,
+      tipo: document.getElementById('cfg-tipo')?.value,
+      cnpj: document.getElementById('cfg-cnpj')?.value || null,
+      telefone: document.getElementById('cfg-tel')?.value || null,
+      email: document.getElementById('cfg-email')?.value || null,
+      endereco: document.getElementById('cfg-end')?.value || null,
+      cidade: document.getElementById('cfg-cid')?.value || null,
+      estado: document.getElementById('cfg-est')?.value || null
+    });
+    if (STATE.loja) STATE.loja.nome = document.getElementById('cfg-nome')?.value;
+    updateSidebar();
+    toast('Dados da loja salvos!', 'success');
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
 }
 
 async function adicionarCategoria() {
