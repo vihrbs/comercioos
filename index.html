@@ -527,18 +527,16 @@
     <div id="tab-login">
       <div class="form-group">
         <label>Email</label>
-        <input type="email" id="login-email" placeholder="seu@email.com" value="demo@comercioos.com">
+        <input type="email" id="login-email" placeholder="seu@email.com" value="">
       </div>
       <div class="form-group">
         <label>Senha</label>
-        <input type="password" id="login-senha" placeholder="••••••••" value="demo123">
+        <input type="password" id="login-senha" placeholder="••••••••" value="">
       </div>
       <button class="btn btn-primary w-full" onclick="doLogin()" style="justify-content:center;padding:13px;">
         Entrar no painel
       </button>
-      <p style="text-align:center;margin-top:12px;font-size:12px;color:var(--text-muted);">
-        Demo: demo@comercioos.com / demo123
-      </p>
+      <p style="text-align:center;margin-top:12px;font-size:12px;color:var(--text-muted);"></p>
     </div>
     <!-- REGISTER -->
     <div id="tab-register" class="hidden">
@@ -1222,13 +1220,13 @@ function renderPDVGrid() {
   if (STATE.pdvCatFilter) prods = prods.filter(p => p.categoria_id === STATE.pdvCatFilter);
   if (q) prods = prods.filter(p => p.nome.toLowerCase().includes(q));
 
-  const icons = { feminino:'👗', masculino:'👔', infantil:'👶', unissex:'🧢', default:'🏷️' };
+  const iconsPadrao = { feminino:'👗', masculino:'👔', infantil:'👶', unissex:'🧢' };
 
   document.getElementById('pdv-grid').innerHTML = prods.length === 0 ?
     '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">😔</div><p>Nenhum produto</p></div>' :
     prods.map(p => {
       const totalEstoque = (p.variacoes||[]).reduce((s, v) => s + (v.estoque||0), 0);
-      const icon = icons[p.genero] || icons.default;
+      const icon = p.icone || iconsPadrao[p.genero] || '🏷️';
       return `
         <div class="pdv-product-card" onclick="addToCart('${p.id}')">
           <div class="prod-icon">${icon}</div>
@@ -1243,32 +1241,60 @@ function addToCart(prodId) {
   const prod = STATE.produtos.find(p => p.id === prodId);
   if (!prod) return;
 
-  // Se tem variações, abre modal de seleção
-  if (prod.variacoes && prod.variacoes.length > 1) {
+  const variacoes = (prod.variacoes || []).filter(v => (v.estoque || 0) > 0);
+
+  // Sem variações cadastradas — adiciona direto
+  if (!prod.variacoes || prod.variacoes.length === 0) {
+    addItemToCart(prod, null);
+    return;
+  }
+
+  // 1 variação com estoque — adiciona direto
+  if (variacoes.length === 1) {
+    addItemToCart(prod, variacoes[0]);
+    return;
+  }
+
+  // Múltiplas variações — abre modal de seleção
+  if (variacoes.length > 1) {
     openVariacaoModal(prod);
     return;
   }
 
-  const variacao = prod.variacoes?.[0];
-  addItemToCart(prod, variacao);
+  // Tudo sem estoque
+  toast('Produto sem estoque disponível!', 'error');
 }
 
 function openVariacaoModal(prod) {
   const variacoes = prod.variacoes.filter(v => v.estoque > 0);
   if (variacoes.length === 0) return toast('Produto sem estoque!', 'error');
 
-  openModal(`Selecionar ${prod.nome}`, `
+  // Guarda prod no state temporário para evitar problema de aspas no onclick inline
+  STATE._varProd = prod;
+
+  openModal(`Selecionar — ${prod.nome}`, `
     <p style="margin-bottom:16px;color:var(--text-muted)">Escolha o tamanho e cor:</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
-      ${variacoes.map(v => `
-        <button onclick="selectVariacao('${prod.id}','${v.id}');closeModal()" 
-          class="btn btn-outline" style="flex-direction:column;padding:14px;gap:4px;border-radius:10px">
-          <span style="font-size:18px;font-weight:800">${v.tamanho}</span>
-          <span style="font-size:12px;color:var(--text-muted)">${v.cor}</span>
-          <span style="font-size:11px;color:var(--success)">${v.estoque} und</span>
-        </button>`).join('')}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px" id="var-grid">
     </div>
   `, '', 'modal-md');
+
+  // Adiciona botões via JS puro (evita problema de aspas aninhadas no innerHTML)
+  const grid = document.getElementById('var-grid');
+  variacoes.forEach(v => {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline';
+    btn.style.cssText = 'flex-direction:column;padding:14px;gap:4px;border-radius:10px;width:100%';
+    btn.innerHTML = `
+      <span style="font-size:20px;font-weight:900">${v.tamanho || '—'}</span>
+      <span style="font-size:12px;color:var(--text-muted)">${v.cor || ''}</span>
+      <span style="font-size:11px;color:var(--success);font-weight:700">${v.estoque} und</span>
+    `;
+    btn.addEventListener('click', function() {
+      addItemToCart(prod, v);
+      closeModal();
+    });
+    grid.appendChild(btn);
+  });
 }
 
 function selectVariacao(prodId, varId) {
@@ -1537,6 +1563,12 @@ function openProdutoModal(id) {
   STATE._variacaoCount = prod?.variacoes?.length || 1;
 }
 
+function selecionarIcone(icone) {
+  document.getElementById('prod-icone').value = icone;
+  const prev = document.getElementById('icone-preview');
+  if (prev) prev.textContent = icone;
+}
+
 function variacaoRowHtml(v, i) {
   return `<div class="variacao-row" id="var-row-${i}">
     <input type="text" placeholder="Tamanho (P, M, G, 38...)" value="${v.tamanho||''}" id="var-tam-${i}" style="width:130px;flex-shrink:0">
@@ -1580,7 +1612,9 @@ async function salvarProduto(id) {
     categoria_id: document.getElementById('prod-cat').value || null,
     genero: document.getElementById('prod-genero').value,
     preco_venda, preco_custo: parseFloat(document.getElementById('prod-custo').value || 0),
-    descricao: document.getElementById('prod-desc').value, variacoes
+    descricao: document.getElementById('prod-desc').value,
+    icone: document.getElementById('prod-icone')?.value || '👗',
+    variacoes
   };
 
   // Atualiza local (demo)
