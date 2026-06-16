@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>ComercioOS — Gestão de Lojas</title>
 <style>
   :root {
@@ -362,7 +362,31 @@
     .sidebar { transform: translateX(-240px); }
     .grid-3, .grid-2 { grid-template-columns: 1fr; }
   }
-</style>
+
+  /* MOBILE RESPONSIVE */
+  @media (max-width: 768px) {
+    :root { --sidebar-w: 260px; }
+    .sidebar { transform: translateX(-260px); transition: transform .25s; }
+    .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,.3); }
+    .main { margin-left: 0 !important; }
+    .topbar { left: 0 !important; }
+    .mobile-overlay { display: block !important; }
+    .grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+    .grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+    .grid-2 { grid-template-columns: 1fr !important; }
+    .pdv-layout { grid-template-columns: 1fr !important; }
+    .content { padding: 12px !important; }
+    table th:nth-child(n+5), table td:nth-child(n+5) { display: none; }
+    #toasts { right: 10px; left: 10px; bottom: 10px; }
+    .toast { max-width: none; }
+  }
+  @media (max-width: 480px) {
+    .kpi-val { font-size: 20px !important; }
+    .grid-4 { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+    .stat-value { font-size: 20px !important; }
+  }
+
+  </style>
 </head>
 <body>
 
@@ -370,6 +394,124 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- AUTH -->
+
+<!-- LANDING PAGE -->
+<div id="landing-page" style="display:none">
+  <style>
+    #landing-page { min-height:100vh; background:linear-gradient(135deg,#1E1B4B 0%,#4C1D95 50%,#7C3AED 100%); display:flex; flex-direction:column; }
+    .lnav { display:flex; align-items:center; justify-content:space-between; padding:18px 32px; background:rgba(255,255,255,.04); backdrop-filter:blur(10px); border-bottom:1px solid rgba(255,255,255,.08); }
+    .llogo { display:flex; align-items:center; gap:10px; }
+    .llogo-icon { width:38px; height:38px; background:#7C3AED; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 4px 12px rgba(124,58,237,.4); }
+    .llogo-name { font-size:19px; font-weight:800; color:#fff; }
+    .lnav-btns { display:flex; gap:10px; }
+    .lbtn-out { padding:8px 18px; background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,.35); border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; font-family:inherit; }
+    .lbtn-out:hover { background:rgba(255,255,255,.1); }
+    .lbtn-wh { padding:8px 18px; background:#fff; color:#7C3AED; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:700; font-family:inherit; }
+    .lbtn-wh:hover { background:#F5F3FF; }
+    .lhero { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:60px 24px 40px; }
+    .lbadge { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.15); border-radius:20px; padding:6px 14px; font-size:12px; color:rgba(255,255,255,.8); margin-bottom:24px; }
+    .lh1 { font-size:clamp(30px,5.5vw,60px); font-weight:900; color:#fff; line-height:1.06; letter-spacing:-2px; margin-bottom:18px; max-width:780px; }
+    .lh1 span { color:#A78BFA; }
+    .lsub { font-size:clamp(14px,2vw,19px); color:rgba(255,255,255,.65); max-width:520px; margin:0 auto 32px; line-height:1.6; }
+    .lcta { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center; }
+    .lbtn-xl { padding:15px 34px; background:#fff; color:#7C3AED; border:none; border-radius:12px; cursor:pointer; font-size:16px; font-weight:800; font-family:inherit; }
+    .lbtn-xl:hover { background:#F5F3FF; }
+    .lbtn-xl2 { padding:14px 28px; background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,.4); border-radius:12px; cursor:pointer; font-size:15px; font-weight:600; font-family:inherit; }
+    .lbtn-xl2:hover { background:rgba(255,255,255,.1); }
+    .lstats { display:flex; align-items:center; gap:28px; margin-top:44px; padding-top:28px; border-top:1px solid rgba(255,255,255,.1); flex-wrap:wrap; justify-content:center; }
+    .lstat-val { font-size:26px; font-weight:900; color:#fff; }
+    .lstat-lbl { font-size:11px; color:rgba(255,255,255,.5); margin-top:2px; }
+    .lfeatures { background:rgba(255,255,255,.03); border-top:1px solid rgba(255,255,255,.08); padding:56px 32px; }
+    .lf-title { text-align:center; font-size:26px; font-weight:800; color:#fff; margin-bottom:6px; }
+    .lf-sub { text-align:center; color:rgba(255,255,255,.5); margin-bottom:32px; }
+    .lf-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; max-width:980px; margin:0 auto; }
+    .lf-card { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:22px; transition:all .2s; }
+    .lf-card:hover { background:rgba(255,255,255,.1); transform:translateY(-2px); }
+    .lf-ico { font-size:26px; margin-bottom:10px; }
+    .lf-name { font-size:14px; font-weight:700; color:#fff; margin-bottom:5px; }
+    .lf-desc { font-size:12px; color:rgba(255,255,255,.55); line-height:1.5; }
+    .lpricing { padding:56px 32px; max-width:440px; margin:0 auto; text-align:center; }
+    .lp-title { font-size:26px; font-weight:800; color:#fff; margin-bottom:6px; }
+    .lp-sub { color:rgba(255,255,255,.5); margin-bottom:28px; }
+    .lprice-card { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); border-radius:16px; padding:28px; }
+    .lprice-val { font-size:52px; font-weight:900; color:#fff; line-height:1; }
+    .lprice-per { font-size:13px; color:rgba(255,255,255,.5); }
+    .lprice-list { list-style:none; margin:20px 0; text-align:left; }
+    .lprice-list li { color:rgba(255,255,255,.7); padding:6px 0; font-size:13px; border-bottom:1px solid rgba(255,255,255,.06); }
+    .lprice-list li::before { content:"✓ "; color:#A78BFA; font-weight:700; }
+    .lfooter { text-align:center; padding:20px; border-top:1px solid rgba(255,255,255,.08); color:rgba(255,255,255,.3); font-size:12px; }
+    @media(max-width:600px) {
+      .lnav { padding:14px 16px; }
+      .lfeatures { padding:36px 16px; }
+      .lpricing { padding:36px 16px; }
+    }
+  </style>
+
+  <nav class="lnav">
+    <div class="llogo">
+      <div class="llogo-icon">🛍️</div>
+      <div class="llogo-name">ComercioOS</div>
+    </div>
+    <div class="lnav-btns">
+      <button class="lbtn-out" onclick="openLandingAuth('login')">Entrar</button>
+      <button class="lbtn-wh" onclick="openLandingAuth('register')">Começar grátis</button>
+    </div>
+  </nav>
+
+  <div class="lhero">
+    <div class="lbadge">✨ Sistema completo para lojas de moda</div>
+    <h1 class="lh1">Gerencie sua loja com <span>inteligência</span></h1>
+    <p class="lsub">PDV, estoque, clientes, financeiro e comissões em um só sistema. Do celular ou computador, onde você estiver.</p>
+    <div class="lcta">
+      <button class="lbtn-xl" onclick="openLandingAuth('register')">🚀 Criar conta grátis</button>
+      <button class="lbtn-xl2" onclick="openLandingAuth('login')">Já tenho conta</button>
+    </div>
+    <div class="lstats">
+      <div><div class="lstat-val">PDV</div><div class="lstat-lbl">Caixa completo</div></div>
+      <div style="color:rgba(255,255,255,.2);font-size:24px">·</div>
+      <div><div class="lstat-val">100%</div><div class="lstat-lbl">Mobile friendly</div></div>
+      <div style="color:rgba(255,255,255,.2);font-size:24px">·</div>
+      <div><div class="lstat-val">∞</div><div class="lstat-lbl">Produtos e clientes</div></div>
+    </div>
+  </div>
+
+  <div class="lfeatures">
+    <div class="lf-title">Tudo que sua loja precisa</div>
+    <div class="lf-sub">Módulos completos, integrados e prontos para usar</div>
+    <div class="lf-grid">
+      <div class="lf-card"><div class="lf-ico">🛒</div><div class="lf-name">PDV / Caixa</div><div class="lf-desc">Venda rapidamente com busca, variações de tamanho e cor, e 5 formas de pagamento.</div></div>
+      <div class="lf-card"><div class="lf-ico">📦</div><div class="lf-name">Estoque</div><div class="lf-desc">Controle por tamanho e cor, alertas de estoque crítico e ajuste de inventário.</div></div>
+      <div class="lf-card"><div class="lf-ico">👥</div><div class="lf-name">Clientes & CRM</div><div class="lf-desc">Histórico de compras, pontos de fidelidade e perfil completo.</div></div>
+      <div class="lf-card"><div class="lf-ico">💰</div><div class="lf-name">Financeiro</div><div class="lf-desc">Controle de caixa, movimentações, crediário e relatórios por período.</div></div>
+      <div class="lf-card"><div class="lf-ico">🏆</div><div class="lf-name">Comissões</div><div class="lf-desc">Ranking de vendedores, metas mensais e cálculo automático de comissões.</div></div>
+      <div class="lf-card"><div class="lf-ico">📊</div><div class="lf-name">Relatórios</div><div class="lf-desc">Dashboard em tempo real, top produtos, análise de margem e muito mais.</div></div>
+    </div>
+  </div>
+
+  <div class="lpricing">
+    <div class="lp-title">Preço simples e justo</div>
+    <div class="lp-sub">Um plano, tudo incluso, sem surpresas</div>
+    <div class="lprice-card">
+      <div class="lprice-val">R$79</div>
+      <div class="lprice-per">/mês por loja</div>
+      <ul class="lprice-list">
+        <li>PDV ilimitado</li>
+        <li>Produtos e variações ilimitados</li>
+        <li>Clientes ilimitados</li>
+        <li>Funcionários e comissões</li>
+        <li>Financeiro e crediário</li>
+        <li>Relatórios completos</li>
+        <li>Acesso pelo celular</li>
+        <li>Suporte por WhatsApp</li>
+      </ul>
+      <button class="lbtn-xl" style="width:100%;padding:14px" onclick="openLandingAuth('register')">Começar agora</button>
+    </div>
+  </div>
+
+  <div class="lfooter">© 2025 ComercioOS · Torre Forte · Todos os direitos reservados</div>
+</div>
+
+
 <div id="auth-screen">
   <div class="auth-box">
     <div class="auth-logo">
@@ -425,8 +567,11 @@
 
 <!-- APP -->
 <div id="app">
+  <!-- MOBILE OVERLAY -->
+  <div class="mobile-overlay" id="mobile-overlay" onclick="closeSidebar()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;"></div>
+
   <!-- SIDEBAR -->
-  <nav class="sidebar">
+  <nav class="sidebar" id="main-sidebar">
     <div class="sidebar-brand">
       <div class="brand-icon">🛍️</div>
       <div>
@@ -507,6 +652,9 @@
   <!-- MAIN -->
   <div class="main">
     <header class="topbar">
+      <button onclick="toggleSidebar()" style="background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;margin-right:8px;display:none" id="hamburger-btn" class="hamburger-btn">
+        <svg width="22" height="22" fill="none" stroke="#1e293b" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
       <div class="topbar-title" id="page-title">Dashboard</div>
       <div class="topbar-actions">
         <div id="caixa-status" style="font-size:13px;"></div>
@@ -702,12 +850,6 @@ async function doLogin() {
   const email = document.getElementById('login-email').value;
   const senha = document.getElementById('login-senha').value;
   if (!email || !senha) return toast('Preencha email e senha', 'error');
-
-  if (DEMO_MODE || email === 'demo@comercioos.com') {
-    initMockData();
-    startApp();
-    return;
-  }
 
   try {
     const res = await fetch(API + '/api/auth/login', {
@@ -2346,10 +2488,73 @@ function toast(msg, type = 'success') {
 }
 
 // ============================================================
+//  MOBILE SIDEBAR
+// ============================================================
+function toggleSidebar() {
+  const sb = document.getElementById('main-sidebar');
+  const ov = document.getElementById('mobile-overlay');
+  if (sb) sb.classList.toggle('open');
+  if (ov) ov.style.display = ov.style.display === 'block' ? 'none' : 'block';
+}
+function closeSidebar() {
+  const sb = document.getElementById('main-sidebar');
+  const ov = document.getElementById('mobile-overlay');
+  if (sb) sb.classList.remove('open');
+  if (ov) ov.style.display = 'none';
+}
+
+// Show hamburger on mobile
+function checkMobile() {
+  const hb = document.getElementById('hamburger-btn');
+  if (hb) hb.style.display = window.innerWidth <= 768 ? 'inline-flex' : 'none';
+}
+window.addEventListener('resize', checkMobile);
+checkMobile();
+
+// Close sidebar when nav item is clicked on mobile
+document.addEventListener('click', function(e) {
+  if (e.target.closest('.nav-item') && window.innerWidth <= 768) {
+    setTimeout(closeSidebar, 100);
+  }
+});
+
+// ============================================================
 //  INIT
 // ============================================================
-if (STATE.token) {
-  initMockData(); startApp();
+// Landing page logic
+function openLandingAuth(tab) {
+  document.getElementById('landing-page').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  switchAuthTab(tab);
+}
+
+// Patch startApp to hide landing+auth, show app
+const _origStartApp = startApp;
+
+// Check token on load
+if (STATE.token && !DEMO_MODE) {
+  // Try to restore session
+  (async function() {
+    try {
+      const res = await fetch(API + '/api/auth/me', {
+        headers: { 'Authorization': 'Bearer ' + STATE.token }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        STATE.user = data;
+        STATE.loja = data.lojas;
+        startApp();
+      } else {
+        localStorage.removeItem('comercioos_token');
+        STATE.token = null;
+        document.getElementById('landing-page').style.display = 'flex';
+      }
+    } catch(e) {
+      document.getElementById('landing-page').style.display = 'flex';
+    }
+  })();
+} else {
+  document.getElementById('landing-page').style.display = 'flex';
 }
 </script>
 </body>
