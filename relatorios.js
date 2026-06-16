@@ -1,0 +1,149 @@
+const express = require('express');
+const router = express.Router();
+const supabase = require('../utils/supabase');
+const { authMiddleware } = require('../middleware/auth');
+
+router.use(authMiddleware);
+
+// GET /api/relatorios/dashboard
+router.get('/dashboard', async (req, res) => {
+  try {
+    const loja_id = req.user.loja_id;
+    const hoje = new Date().toISOString().split('T')[0];
+    const inicioMes = hoje.substring(0, 8) + '01';
+
+    // Vendas hoje
+    const { data: vendasHoje } = await supabase.from('vendas')
+      .select('total').eq('loja_id', loja_id).eq('status', 'finalizada')
+      .gte('criado_em', hoje).lte('criado_em', hoje + 'T23:59:59');
+
+    // Vendas mês
+    const { data: vendasMes } = await supabase.from('vendas')
+      .select('total, forma_pagamento').eq('loja_id', loja_id).eq('status', 'finalizada')
+      .gte('criado_em', inicioMes);
+
+    // Total clientes
+    const { count: totalClientes } = await supabase.from('clientes')
+      .select('*', { count: 'exact', head: true }).eq('loja_id', loja_id).eq('ativo', true);
+
+    // Total produtos
+    const { count: totalProdutos } = await supabase.from('produtos')
+      .select('*', { count: 'exact', head: true }).eq('loja_id', loja_id).eq('ativo', true);
+
+    // Estoque crítico
+    const { data: estoqueCritico } = await supabase.from('variacoes')
+      .select('*, produtos!inner(nome, loja_id)')
+      .eq('produtos.loja_id', loja_id)
+      .filter('estoque', 'lte', 5)
+      .limit(10);
+
+    // Últimas vendas
+    const { data: ultimasVendas } = await supabase.from('vendas')
+      .select('numero, total, forma_pagamento, criado_em, clientes(nome)')
+      .eq('loja_id', loja_id).eq('status', 'finalizada')
+      .order('criado_em', { ascending: false }).limit(5);
+
+    // Top produtos (por quantidade vendida)
+    const { data: itensMes } = await supabase.from('venda_itens')
+      .select('nome_produto, quantidade, subtotal, vendas!inner(loja_id, status)')
+      .eq('vendas.loja_id', loja_id).eq('vendas.status', 'finalizada');
+
+    const produtosAgrup = {};
+    (itensMes || []).forEach(i => {
+      if (!produtosAgrup[i.nome_produto]) {
+        produtosAgrup[i.nome_produto] = { nome: i.nome_produto, qtd: 0, total: 0 };
+      }
+      produtosAgrup[i.nome_produto].qtd += i.quantidade;
+      produtosAgrup[i.nome_produto].total += i.subtotal;
+    });
+    const topProdutos = Object.values(produtosAgrup).sort((a, b) => b.qtd - a.qtd).slice(0, 5);
+
+    // Agrupamento por forma pagamento no mês
+    const pagamentos = {};
+    (vendasMes || []).forEach(v => {
+      pagamentos[v.forma_pagamento] = (pagamentos[v.forma_pagamento] || 0) + v.total;
+    });
+
+    const totalHoje = (vendasHoje || []).reduce((s, v) => s + v.total, 0);
+    const totalMes = (vendasMes || []).reduce((s, v) => s + v.total, 0);
+    const numVendasHoje = vendasHoje?.length || 0;
+    const ticketMedio = numVendasHoje ? (totalHoje / numVendasHoje) : 0;
+
+    res.json({
+      hoje: { total: totalHoje, num_vendas: numVendasHoje, ticket_medio: ticketMedio },
+      mes: { total: totalMes, num_vendas: vendasMes?.length || 0, por_pagamento: pagamentos },
+      totais: { clientes: totalClientes || 0, produtos: totalProdutos || 0 },
+      ultimas_vendas: ultimasVendas || [],
+      top_produtos: topProdutos,
+      estoque_critico: estoqueCritico || []
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/relatorios/vendas-periodo
+router.get('/vendas-periodo', async (req, res) => {
+  try {
+    const { data_inicio, data_fim, agrupar_por = 'dia' } = req.query;
+    const { data: vendas } = await supabase.from('vendas')
+      .select('total, criado_em, forma_pagamento, funcionarios(nome)')
+      .eq('loja_id', req.user.loja_id).eq('status', 'finalizada')
+      .gte('criado_em', data_inicio || new Date(Date.now() - 30 * 86400000).toISOString())
+      .lte('criado_em', (data_fim || new Date().toISOString().split('T')[0]) + 'T23:59:59')
+      .order('criado_em');
+
+    // Agrupa por dia
+    const porDia = {};
+    (vendas || []).forEach(v => {
+      const dia = v.criado_em.split('T')[0];
+      if (!porDia[dia]) porDia[dia] = { data: dia, total: 0, num_vendas: 0 };
+      porDia[dia].total += v.total;
+      porDia[dia].num_vendas++;
+    });
+
+    res.json({
+      vendas: vendas || [],
+      por_dia: Object.values(porDia),
+      totais: {
+        total: (vendas || []).reduce((s, v) => s + v.total, 0),
+        num_vendas: vendas?.length || 0,
+        ticket_medio: vendas?.length ? (vendas.reduce((s, v) => s + v.total, 0) / vendas.length) : 0
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/relatorios/estoque
+router.get('/estoque', async (req, res) => {
+  const { data } = await supabase.from('variacoes')
+    .select('*, produtos!inner(nome, loja_id, categorias(nome), preco_venda, preco_custo)')
+    .eq('produtos.loja_id', req.user.loja_id)
+    .eq('ativo', true).order('estoque');
+  res.json(data || []);
+});
+
+// GET /api/relatorios/clientes-top
+router.get('/clientes-top', async (req, res) => {
+  const { data } = await supabase.from('clientes')
+    .select('nome, telefone, total_compras, num_compras, pontos, ultima_compra')
+    .eq('loja_id', req.user.loja_id).eq('ativo', true)
+    .order('total_compras', { ascending: false }).limit(20);
+  res.json(data || []);
+});
+
+// GET /api/relatorios/crediario
+router.get('/crediario', async (req, res) => {
+  const { status } = req.query;
+  let query = supabase.from('crediario')
+    .select('*, clientes(nome, telefone), vendas(numero)')
+    .eq('loja_id', req.user.loja_id).order('criado_em', { ascending: false });
+  if (status) query = query.eq('status', status);
+  const { data } = await query;
+  res.json(data || []);
+});
+
+module.exports = router;
