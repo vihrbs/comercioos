@@ -709,6 +709,7 @@ let STATE = {
 //  MOCK DATA (Demo sem backend)
 // ============================================================
 function initMockData() {
+  if (!DEMO_MODE) return; // Em produção nunca usa mock data
   STATE.user = { id: 'u1', nome: 'Leticia Admin', email: 'demo@comercioos.com', perfil: 'admin' };
   STATE.loja = { id: 'l1', nome: 'Boutique ComercioOS', tipo: 'moda', cor_primaria: '#6366f1' };
 
@@ -791,14 +792,14 @@ function initMockData() {
 //  API / DATA LAYER
 // ============================================================
 async function api(method, path, body) {
-  if (DEMO_MODE) return mockApi(method, path, body);
   const res = await fetch(API + path, {
     method,
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.token}` },
     body: body ? JSON.stringify(body) : undefined
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const data = await res.json().catch(() => ({ error: 'Resposta inválida do servidor' }));
+  if (!res.ok) throw new Error(data.error || data.message || 'Erro desconhecido');
+  return data;
 }
 
 function mockApi(method, path, body) {
@@ -910,17 +911,49 @@ function startApp() {
   document.getElementById('app').style.display = 'flex';
   updateSidebar();
   navigate('dashboard');
+  // Carrega dados reais da API em background
+  carregarDadosBase();
+}
+
+async function carregarDadosBase() {
+  try {
+    const [cats, prods, clis, funcs] = await Promise.allSettled([
+      api('GET', '/api/categorias/lista'),
+      api('GET', '/api/produtos?limit=200'),
+      api('GET', '/api/clientes?limit=200'),
+      api('GET', '/api/operacoes/funcionarios')
+    ]);
+
+    if (cats.status === 'fulfilled') {
+      STATE.categorias = Array.isArray(cats.value) ? cats.value : [];
+    }
+    if (prods.status === 'fulfilled') {
+      STATE.produtos = prods.value?.data || (Array.isArray(prods.value) ? prods.value : []);
+    }
+    if (clis.status === 'fulfilled') {
+      STATE.clientes = clis.value?.data || (Array.isArray(clis.value) ? clis.value : []);
+    }
+    if (funcs.status === 'fulfilled') {
+      STATE.funcionarios = Array.isArray(funcs.value) ? funcs.value : [];
+    }
+
+    // Atualiza PDV se estiver aberto
+    if (STATE.currentPage === 'pdv') navigate('pdv');
+  } catch(e) {
+    console.warn('Erro ao carregar dados base:', e);
+  }
 }
 
 function updateSidebar() {
   const u = STATE.user; const l = STATE.loja;
-  document.getElementById('sidebar-loja-nome').textContent = l?.nome || '';
-  document.getElementById('sidebar-user-name').textContent = u?.nome || '';
-  document.getElementById('sidebar-user-role').textContent = u?.perfil || '';
-  document.getElementById('sidebar-avatar').textContent = (u?.nome || 'U')[0].toUpperCase();
-  if (STATE.caixaAtual?.status === 'aberto') {
-    document.getElementById('caixa-status').innerHTML = `<span class="badge badge-green">🟢 Caixa aberto</span>`;
-  }
+  const lojaEl = document.getElementById('sidebar-loja-nome');
+  const nomeEl = document.getElementById('sidebar-user-name');
+  const roleEl = document.getElementById('sidebar-user-role');
+  const avatEl = document.getElementById('sidebar-avatar');
+  if (lojaEl) lojaEl.textContent = l?.nome || '';
+  if (nomeEl) nomeEl.textContent = u?.nome || '';
+  if (roleEl) roleEl.textContent = u?.perfil || '';
+  if (avatEl) avatEl.textContent = (u?.nome || 'U')[0].toUpperCase();
 }
 
 function logout() {
@@ -1125,6 +1158,12 @@ function pagBadge(p) {
 //  PDV
 // ============================================================
 function renderPDV() {
+  // Se ainda não tem dados, mostra loading e tenta de novo
+  if (STATE.produtos.length === 0 && STATE.categorias.length === 0) {
+    setContent('<div style="display:flex;align-items:center;justify-content:center;min-height:300px"><div><div class="spinner" style="margin:0 auto 12px"></div><p style="color:var(--text-muted);text-align:center">Carregando produtos...</p></div></div>');
+    carregarDadosBase().then(() => renderPDV());
+    return;
+  }
   const cats = [{ id: null, nome: 'Todos' }, ...STATE.categorias];
   const catsHtml = cats.map(c => `<button class="pdv-cat-btn ${STATE.pdvCatFilter === c.id ? 'active' : ''}" onclick="pdvSetCat('${c.id}')">${c.nome}</button>`).join('');
   
@@ -1400,23 +1439,47 @@ async function finalizarVenda() {
 
   const subtotal = STATE.cart.reduce((s, i) => s + i.preco_unitario * i.quantidade, 0);
   const desconto_valor = STATE.cartDesconto || 0;
-  const total = subtotal - desconto_valor;
+  const total = Math.max(0, subtotal - desconto_valor);
   const parcelas = parseInt(document.getElementById('parcelas-input')?.value || 1);
-  const cliente_id = document.getElementById('cart-cliente')?.value || null;
-  const funcionario_id = document.getElementById('cart-func')?.value || null;
+
+  // Garante null real (não string vazia) para campos UUID opcionais
+  const rawCliente = document.getElementById('cart-cliente')?.value || '';
+  const rawFunc = document.getElementById('cart-func')?.value || '';
+  const cliente_id = rawCliente && rawCliente.length > 10 ? rawCliente : null;
+  const funcionario_id = rawFunc && rawFunc.length > 10 ? rawFunc : null;
+
+  const btn = document.querySelector('.cart-actions .btn-success');
+  if (btn) { btn.textContent = 'Processando...'; btn.disabled = true; }
 
   try {
     const venda = await api('POST', '/api/vendas', {
-      itens: STATE.cart.map(i => ({ produto_id: i.produto_id, variacao_id: i.variacao_id, nome_produto: i.nome_produto, tamanho: i.tamanho, cor: i.cor, quantidade: i.quantidade, preco_unitario: i.preco_unitario, desconto: 0, subtotal: i.preco_unitario * i.quantidade })),
-      cliente_id, funcionario_id, forma_pagamento: STATE.cartPagamento,
-      parcelas, desconto_valor, subtotal, total
+      itens: STATE.cart.map(i => ({
+        produto_id: i.produto_id,
+        variacao_id: i.variacao_id || null,
+        nome_produto: i.nome_produto,
+        tamanho: i.tamanho || null,
+        cor: i.cor || null,
+        quantidade: i.quantidade,
+        preco_unitario: i.preco_unitario,
+        desconto: 0,
+        subtotal: i.preco_unitario * i.quantidade
+      })),
+      cliente_id,
+      funcionario_id,
+      forma_pagamento: STATE.cartPagamento,
+      parcelas,
+      desconto_valor,
+      subtotal,
+      total
     });
 
     toast(`✅ Venda ${venda.numero} finalizada! Total: R$ ${total.toFixed(2).replace('.',',')}`, 'success');
     openRecibo(venda, total);
     clearCart();
   } catch (e) {
-    toast('Erro ao finalizar venda: ' + e.message, 'error');
+    toast('Erro: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.textContent = '✅ Finalizar Venda'; btn.disabled = false; }
   }
 }
 
