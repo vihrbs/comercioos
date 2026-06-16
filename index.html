@@ -686,7 +686,7 @@ const API = 'https://comercioos-production.up.railway.app'; // Troque pela sua U
 const DEMO_MODE = false;
 
 let STATE = {
-  token: localStorage.getItem('comercioos_token'),
+  token: localStorage.getItem('cOS_token'),
   user: null,
   loja: null,
   currentPage: 'dashboard',
@@ -847,9 +847,12 @@ function switchAuthTab(tab) {
 }
 
 async function doLogin() {
-  const email = document.getElementById('login-email').value;
+  const email = document.getElementById('login-email').value.trim();
   const senha = document.getElementById('login-senha').value;
   if (!email || !senha) return toast('Preencha email e senha', 'error');
+
+  const btn = document.querySelector('#tab-login .btn-primary');
+  if (btn) { btn.textContent = 'Entrando...'; btn.disabled = true; }
 
   try {
     const res = await fetch(API + '/api/auth/login', {
@@ -857,32 +860,58 @@ async function doLogin() {
       body: JSON.stringify({ email, senha })
     });
     const data = await res.json();
-    if (!res.ok) return toast(data.error, 'error');
-    localStorage.setItem('comercioos_token', data.token);
+    if (!res.ok) return toast(data.error || 'Credenciais inválidas', 'error');
+    localStorage.setItem('cOS_token', data.token);
     STATE.token = data.token; STATE.user = data.usuario; STATE.loja = data.loja;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('landing-page').style.display = 'none';
     startApp();
   } catch (e) {
-    toast('Erro ao conectar. Usando modo demo.', 'warning');
-    initMockData(); startApp();
+    toast('Erro ao conectar ao servidor. Verifique sua conexão.', 'error');
+  } finally {
+    if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
   }
 }
 
 async function doRegister() {
-  const nome_loja = document.getElementById('reg-loja').value;
-  const nome = document.getElementById('reg-nome').value;
-  const email = document.getElementById('reg-email').value;
+  const nome_loja = document.getElementById('reg-loja').value.trim();
+  const nome = document.getElementById('reg-nome').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
   const senha = document.getElementById('reg-senha').value;
   if (!nome_loja || !nome || !email || !senha) return toast('Preencha todos os campos', 'error');
-  toast('Conta criada! Use o demo para testar.', 'info');
-  switchAuthTab('login');
+  if (senha.length < 6) return toast('Senha deve ter no mínimo 6 caracteres', 'error');
+
+  const btn = document.querySelector('#tab-register .btn-primary');
+  if (btn) { btn.textContent = 'Criando conta...'; btn.disabled = true; }
+
+  try {
+    const res = await fetch(API + '/api/auth/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome_loja, nome, email, senha })
+    });
+    const data = await res.json();
+    if (!res.ok) return toast(data.error || 'Erro ao criar conta', 'error');
+    // Register returns token directly — use it, no need to login again
+    localStorage.setItem('cOS_token', data.token);
+    STATE.token = data.token; STATE.user = data.usuario; STATE.loja = data.loja;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('landing-page').style.display = 'none';
+    startApp();
+    toast('Conta criada com sucesso! 🎉', 'success');
+  } catch (e) {
+    toast('Erro ao conectar ao servidor. Verifique sua conexão.', 'error');
+  } finally {
+    if (btn) { btn.textContent = 'Criar minha conta'; btn.disabled = false; }
+  }
 }
 
 function startApp() {
   document.getElementById('auth-screen').style.display = 'none';
+  const lp = document.getElementById('landing-page');
+  if (lp) lp.style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   updateSidebar();
   navigate('dashboard');
-  toast(`Bem-vindo, ${STATE.user.nome.split(' ')[0]}! 👋`, 'success');
 }
 
 function updateSidebar() {
@@ -897,7 +926,7 @@ function updateSidebar() {
 }
 
 function logout() {
-  localStorage.removeItem('comercioos_token');
+  localStorage.removeItem('cOS_token');
   location.reload();
 }
 
@@ -2531,31 +2560,31 @@ function openLandingAuth(tab) {
 // Patch startApp to hide landing+auth, show app
 const _origStartApp = startApp;
 
-// Check token on load
-if (STATE.token && !DEMO_MODE) {
-  // Try to restore session
-  (async function() {
+// Restore session on load
+(async function() {
+  const savedToken = localStorage.getItem('cOS_token');
+  if (savedToken) {
+    STATE.token = savedToken;
     try {
       const res = await fetch(API + '/api/auth/me', {
-        headers: { 'Authorization': 'Bearer ' + STATE.token }
+        headers: { 'Authorization': 'Bearer ' + savedToken }
       });
       if (res.ok) {
         const data = await res.json();
         STATE.user = data;
         STATE.loja = data.lojas;
         startApp();
-      } else {
-        localStorage.removeItem('comercioos_token');
-        STATE.token = null;
-        document.getElementById('landing-page').style.display = 'flex';
+        return;
       }
-    } catch(e) {
-      document.getElementById('landing-page').style.display = 'flex';
-    }
-  })();
-} else {
-  document.getElementById('landing-page').style.display = 'flex';
-}
+    } catch(e) {}
+    // Token inválido - limpa e mostra landing
+    localStorage.removeItem('cOS_token');
+    STATE.token = null;
+  }
+  // Sem token - mostra landing
+  const lp = document.getElementById('landing-page');
+  if (lp) lp.style.display = 'flex';
+})();
 </script>
 </body>
 </html>
