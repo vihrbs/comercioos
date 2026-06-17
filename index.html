@@ -224,6 +224,16 @@ tr:hover td{background:#FAFAFA}
 .tot-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:4px}
 .tot-row.big{font-size:20px;font-weight:900;color:var(--brand);margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
 
+/* ── TRIAL BANNER ── */
+.trial-banner{display:none;padding:10px 20px;text-align:center;font-size:13px;font-weight:600;position:sticky;top:var(--tb);z-index:80;border-bottom:1px solid rgba(0,0,0,.1)}
+.trial-ok{background:#D1FAE5;color:#065F46}
+.trial-warn{background:#FEF3C7;color:#92400E}
+.trial-danger{background:#FEE2E2;color:#991B1B}
+
+/* ── BLOQUEIO ── */
+.bloqueio{position:fixed;inset:0;background:linear-gradient(135deg,#1E1B4B,#4C1D95);z-index:500;display:none;align-items:center;justify-content:center}
+.bloqueio-box{background:#fff;border-radius:20px;padding:40px;max-width:440px;width:90%;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,.3)}
+
 /* ── TOASTS ── */
 #toasts{position:fixed;bottom:18px;right:18px;z-index:400;display:flex;flex-direction:column;gap:6px;pointer-events:none}
 .toast{background:#fff;border-radius:9px;padding:11px 14px;box-shadow:var(--shl);border-left:4px solid var(--ok);font-size:13px;font-weight:600;max-width:290px;pointer-events:all;animation:ti .3s ease}
@@ -291,7 +301,7 @@ tr:hover td{background:#FAFAFA}
   </div>
   <div class="lprice">
     <div class="lpc">
-      <div class="lpv">R$79</div><div class="lpp">/mês por loja</div>
+      <div class="lpv">R$59,99</div><div class="lpp">/mês por loja</div>
       <ul class="lplist">
         <li>PDV ilimitado</li><li>Produtos e variações ilimitados</li><li>Clientes ilimitados</li>
         <li>Funcionários e comissões</li><li>Financeiro e crediário</li><li>Acesso pelo celular</li>
@@ -330,6 +340,21 @@ tr:hover td{background:#FAFAFA}
 </div>
 
 <!-- APP -->
+<!-- TELA DE BLOQUEIO -->
+<div class="bloqueio" id="bloqueio">
+  <div class="bloqueio-box">
+    <div style="font-size:56px;margin-bottom:16px">🔒</div>
+    <h2 style="font-size:22px;font-weight:900;color:#111;margin-bottom:8px">Acesso Bloqueado</h2>
+    <p style="color:#6B7280;margin-bottom:24px;line-height:1.6">Seu período de teste gratuito de 14 dias expirou. Assine o ComercioOS para continuar usando.</p>
+    <div style="background:#F5F3FF;border-radius:12px;padding:20px;margin-bottom:24px">
+      <div style="font-size:36px;font-weight:900;color:#7C3AED">R$59,99<span style="font-size:14px;font-weight:400;color:#6B7280">/mês</span></div>
+      <div style="font-size:13px;color:#6B7280;margin-top:4px">Acesso completo a todos os módulos</div>
+    </div>
+    <button class="btn bp blk blg" onclick="assinarAgora()" id="btn-assinar">🚀 Assinar Agora</button>
+    <p style="font-size:12px;color:#9CA3AF;margin-top:12px">Cancele quando quiser · Suporte por WhatsApp</p>
+  </div>
+</div>
+
 <div id="app">
   <div class="sbov" id="sbov" onclick="closeSB()"></div>
   <nav class="sb" id="sb">
@@ -377,7 +402,9 @@ tr:hover td{background:#FAFAFA}
         <button class="btn bp bsm" onclick="go('pdv')">🛒 PDV</button>
       </div>
     </header>
-    <div class="page" id="page"></div>
+    <!-- BANNER DE TRIAL -->
+<div class="trial-banner" id="trial-banner"></div>
+<div class="page" id="page"></div>
   </div>
 </div>
 
@@ -394,6 +421,8 @@ tr:hover td{background:#FAFAFA}
 </div>
 <script>
 const API='https://comercioos-production.up.railway.app';
+const MP_PUBLIC_KEY='APP_USR-211ef517-0433-41f5-aac0-919388c6a073';
+const PLANO_VALOR=59.99;
 let S={token:localStorage.getItem('cOS'),user:null,loja:null,page:'dashboard',cats:[],prods:[],clis:[],funcs:[],cart:[],cartCli:null,cartFn:null,cartPag:'dinheiro',cartDesc:0,caixaAtual:null};
 
 // ── API ──
@@ -474,6 +503,61 @@ function startApp(){
   document.getElementById('sb-rl').textContent=S.user?.perfil||'';
   document.getElementById('sb-av').textContent=(S.user?.nome||'U')[0].toUpperCase();
   go('dashboard');
+  verificarPlano();
+}
+
+// ── PLANO / TRIAL ──
+async function verificarPlano() {
+  try {
+    const d = await req('GET', '/api/assinatura/status');
+    const banner = document.getElementById('trial-banner');
+    const bloqueio = document.getElementById('bloqueio');
+
+    if (d.bloqueado) {
+      bloqueio.style.display = 'flex';
+      return false;
+    }
+
+    bloqueio.style.display = 'none';
+
+    if (d.status === 'trial') {
+      const dias = d.dias_restantes;
+      banner.style.display = 'block';
+      if (dias > 7) {
+        banner.className = 'trial-banner trial-ok';
+        banner.innerHTML = `⏳ Período de teste: <strong>${dias} dias restantes</strong> · <a href="#" onclick="assinarAgora()" style="color:inherit;font-weight:800;text-decoration:underline">Assinar por R$59,99/mês →</a>`;
+      } else if (dias > 3) {
+        banner.className = 'trial-banner trial-warn';
+        banner.innerHTML = `⚠️ Trial expira em <strong>${dias} dias</strong>! · <a href="#" onclick="assinarAgora()" style="color:inherit;font-weight:800;text-decoration:underline">Assinar agora →</a>`;
+      } else {
+        banner.className = 'trial-banner trial-danger';
+        banner.innerHTML = `🚨 Apenas <strong>${dias} dia${dias!==1?'s':''}</strong> restante${dias!==1?'s':''}! · <a href="#" onclick="assinarAgora()" style="color:inherit;font-weight:800;text-decoration:underline">Assinar agora ou perder acesso →</a>`;
+      }
+    } else if (d.status === 'ativo') {
+      banner.style.display = 'none';
+    }
+
+    return true;
+  } catch(e) {
+    console.warn('verificarPlano:', e);
+    return true; // Em caso de erro, não bloqueia
+  }
+}
+
+async function assinarAgora() {
+  const btn = document.getElementById('btn-assinar');
+  if (btn) { btn.innerHTML = '<div class="sp"></div> Processando...'; btn.disabled = true; }
+  try {
+    const d = await req('POST', '/api/assinatura/criar', {});
+    if (d.init_point) {
+      window.open(d.init_point, '_blank');
+      toast('Abrindo pagamento no Mercado Pago...', 'in');
+    }
+  } catch(e) {
+    toast('Erro: ' + e.message, 'er');
+  } finally {
+    if (btn) { btn.innerHTML = '🚀 Assinar Agora'; btn.disabled = false; }
+  }
 }
 
 // ── NAV ──
@@ -1180,11 +1264,15 @@ async function pgCfg(){
           </div>
           <div class="fl g8 mt3"><input class="fi" id="ncat" placeholder="Nova categoria..."><button class="btn bo bsm" onclick="addCat()">+</button></div>
         </div>
-        <div class="card">
+        <div class="card mb4">
           <div class="ch"><div class="ct">👤 Minha Conta</div></div>
           <div class="fl fic g8 mb3"><div class="av" style="width:40px;height:40px;font-size:16px">${(S.user?.nome||'U')[0].toUpperCase()}</div>
           <div><div class="fb">${S.user?.nome||'—'}</div><div class="fxs txm">${S.user?.email||''} · ${S.user?.perfil||''}</div></div></div>
           <button class="btn bd bsm" onclick="logout()">🚪 Sair da conta</button>
+        </div>
+        <div class="card" id="card-assinatura">
+          <div class="ch"><div class="ct">💳 Assinatura</div></div>
+          <div id="assinatura-info"><div class="sp"></div></div>
         </div>
       </div>
     </div>`);
