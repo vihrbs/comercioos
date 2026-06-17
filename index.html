@@ -1291,6 +1291,20 @@ async function delCat(id){if(!confirm('Remover?'))return;try{await req('DELETE',
 document.addEventListener('keydown',e=>{if(e.key==='Enter'){if(!document.getElementById('at-login').classList.contains('dn'))doLogin();else if(!document.getElementById('at-reg').classList.contains('dn'))doRegister();}});
 
 (async function(){
+  // Verifica retorno do Mercado Pago
+  const params = new URLSearchParams(window.location.search);
+  const pgStatus = params.get('pagamento');
+  if (pgStatus === 'aprovado') {
+    toast('✅ Pagamento aprovado! Sua conta está ativa.', 'ok');
+    window.history.replaceState({}, '', window.location.pathname);
+  } else if (pgStatus === 'pendente') {
+    toast('⏳ Pagamento pendente. Assim que confirmado seu acesso será liberado.', 'in');
+    window.history.replaceState({}, '', window.location.pathname);
+  } else if (pgStatus === 'falhou') {
+    toast('❌ Pagamento não aprovado. Tente novamente.', 'er');
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
   const tk=localStorage.getItem('cOS');
   if(!tk){document.getElementById('land').style.display='flex';return;}
   S.token=tk;
