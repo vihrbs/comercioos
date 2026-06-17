@@ -40,7 +40,7 @@
   }
   .auth-logo { text-align: center; margin-bottom: 32px; }
   .auth-logo .logo-icon {
-    width: 64px; height: 64px; background: var(--primary); border-radius: 16px;
+    width: 64px; height: 64px; background: var(--brand); border-radius: 16px;
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 28px; margin-bottom: 12px;
   }
@@ -51,7 +51,7 @@
     flex: 1; padding: 9px; border: none; background: transparent; border-radius: 8px;
     cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-muted); transition: all .2s;
   }
-  .auth-tab.active { background: white; color: var(--primary); box-shadow: var(--shadow); }
+  .auth-tab.active { background: white; color: var(--brand); box-shadow: var(--shadow); }
 
   /* LAYOUT */
   #app { display: none; min-height: 100vh; }
@@ -64,7 +64,7 @@
     display: flex; align-items: center; gap: 12px;
   }
   .brand-icon {
-    width: 38px; height: 38px; background: var(--primary); border-radius: 10px;
+    width: 38px; height: 38px; background: var(--brand); border-radius: 10px;
     display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
   }
   .brand-name { color: white; font-size: 18px; font-weight: 800; }
@@ -82,7 +82,7 @@
     border: none; background: none; width: 100%; text-align: left;
   }
   .nav-item:hover { background: rgba(255,255,255,.08); color: white; }
-  .nav-item.active { background: var(--primary); color: white; }
+  .nav-item.active { background: var(--brand); color: white; }
   .nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
   .sidebar-footer {
     padding: 12px 8px; border-top: 1px solid rgba(255,255,255,.1);
@@ -91,7 +91,7 @@
     display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px;
   }
   .avatar {
-    width: 34px; height: 34px; background: var(--primary); border-radius: 50%;
+    width: 34px; height: 34px; background: var(--brand); border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     font-size: 14px; font-weight: 700; color: white; flex-shrink: 0;
   }
@@ -114,8 +114,8 @@
     padding: 9px 16px; border-radius: 9px; border: none; cursor: pointer;
     font-size: 14px; font-weight: 600; transition: all .15s; text-decoration: none;
   }
-  .btn-primary { background: var(--primary); color: white; }
-  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-primary { background: var(--brand); color: white; }
+  .btn-primary:hover { background: var(--brand-dark); }
   .btn-success { background: var(--success); color: white; }
   .btn-danger { background: var(--danger); color: white; }
   .btn-warning { background: var(--warning); color: white; }
@@ -176,7 +176,7 @@
     font-size: 14px; color: var(--text); background: white; transition: border-color .15s;
     font-family: inherit;
   }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); }
   .input-group { display: flex; gap: 8px; }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
@@ -217,16 +217,16 @@
     background: white; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap;
     color: var(--text-muted); transition: all .15s;
   }
-  .pdv-cat-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .pdv-cat-btn.active { background: var(--brand); color: white; border-color: var(--brand); }
   .pdv-grid { flex: 1; overflow-y: auto; padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
   .pdv-product-card {
     background: var(--bg); border-radius: 10px; padding: 12px; cursor: pointer;
     transition: all .15s; border: 2px solid transparent; text-align: center;
   }
-  .pdv-product-card:hover { border-color: var(--primary); background: var(--primary-light); }
+  .pdv-product-card:hover { border-color: var(--brand); background: var(--brand-light); }
   .pdv-product-card .prod-icon { font-size: 28px; margin-bottom: 6px; }
   .pdv-product-card .prod-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 4px; }
-  .pdv-product-card .prod-price { font-size: 13px; font-weight: 800; color: var(--primary); }
+  .pdv-product-card .prod-price { font-size: 13px; font-weight: 800; color: var(--brand); }
   .pdv-product-card .prod-stock { font-size: 10px; color: var(--text-muted); }
   .cart-header { padding: 16px; border-bottom: 1px solid var(--border); }
   .cart-customer { padding: 10px 16px; border-bottom: 1px solid var(--border); }
@@ -248,7 +248,7 @@
   .qty-num { font-size: 14px; font-weight: 700; min-width: 24px; text-align: center; }
   .cart-total { padding: 12px 16px; border-top: 1px solid var(--border); }
   .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 14px; }
-  .total-row.big { font-size: 22px; font-weight: 800; color: var(--primary); }
+  .total-row.big { font-size: 22px; font-weight: 800; color: var(--brand); }
   .cart-payment { padding: 12px 16px; border-top: 1px solid var(--border); }
   .payment-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
   .payment-btn {
@@ -256,7 +256,7 @@
     background: white; cursor: pointer; text-align: center; transition: all .15s;
     font-size: 12px; font-weight: 700; color: var(--text-muted);
   }
-  .payment-btn.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+  .payment-btn.active { border-color: var(--brand); background: var(--brand-light); color: var(--brand); }
   .cart-actions { padding: 12px 16px; }
 
   /* EMPTY STATE */
@@ -280,7 +280,7 @@
   /* LOADING */
   .spinner {
     display: inline-block; width: 20px; height: 20px;
-    border: 2px solid var(--border); border-top-color: var(--primary);
+    border: 2px solid var(--border); border-top-color: var(--brand);
     border-radius: 50%; animation: spin .6s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -295,18 +295,18 @@
     background: var(--bg); border-radius: 10px; border: 1.5px solid transparent;
     transition: border-color .15s; flex: 1;
   }
-  .search-bar:focus-within { border-color: var(--primary); background: white; }
+  .search-bar:focus-within { border-color: var(--brand); background: white; }
   .search-bar input { background: none; border: none; outline: none; padding: 0; flex: 1; font-size: 14px; }
 
   /* CHARTS */
   .chart-bar { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding-top: 10px; }
   .chart-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .bar {
-    width: 100%; background: var(--primary); border-radius: 4px 4px 0 0;
+    width: 100%; background: var(--brand); border-radius: 4px 4px 0 0;
     transition: height .3s; min-height: 2px;
   }
   .bar-label { font-size: 10px; color: var(--text-muted); }
-  .bar-value { font-size: 10px; font-weight: 700; color: var(--primary); }
+  .bar-value { font-size: 10px; font-weight: 700; color: var(--brand); }
 
   /* TABS */
   .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
@@ -315,7 +315,7 @@
     font-size: 14px; font-weight: 600; color: var(--text-muted);
     border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s;
   }
-  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-btn.active { color: var(--brand); border-bottom-color: var(--brand); }
 
   /* VARIAÇÕES */
   .variacao-row { display: flex; gap: 8px; align-items: center; padding: 10px; background: var(--bg); border-radius: 8px; margin-bottom: 6px; }
@@ -323,14 +323,14 @@
 
   /* PROGRESS */
   .progress { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
-  .progress-bar { height: 100%; background: var(--primary); border-radius: 4px; transition: width .3s; }
+  .progress-bar { height: 100%; background: var(--brand); border-radius: 4px; transition: width .3s; }
 
   /* CREDIÁRIO / PAGAMENTO */
   .payment-option { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
   .payment-option input[type=radio] { width: auto; }
 
   /* TAGS */
-  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: var(--primary-light); color: var(--primary); border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: var(--brand-light); color: var(--brand); border-radius: 20px; font-size: 12px; font-weight: 600; }
 
   /* RESPONSIVE helpers */
   .flex { display: flex; }
@@ -525,11 +525,11 @@
     </div>
     <!-- LOGIN -->
     <div id="tab-login">
-      <div class="form-group">
+      <div class="fgrp">
         <label>Email</label>
         <input type="email" id="login-email" placeholder="seu@email.com" value="">
       </div>
-      <div class="form-group">
+      <div class="fgrp">
         <label>Senha</label>
         <input type="password" id="login-senha" placeholder="••••••••" value="">
       </div>
@@ -540,19 +540,19 @@
     </div>
     <!-- REGISTER -->
     <div id="tab-register" class="hidden">
-      <div class="form-group">
+      <div class="fgrp">
         <label>Nome da loja</label>
         <input type="text" id="reg-loja" placeholder="Ex: Boutique Elegance">
       </div>
-      <div class="form-group">
+      <div class="fgrp">
         <label>Seu nome</label>
         <input type="text" id="reg-nome" placeholder="Seu nome completo">
       </div>
-      <div class="form-group">
+      <div class="fgrp">
         <label>Email</label>
         <input type="email" id="reg-email" placeholder="seu@email.com">
       </div>
-      <div class="form-group">
+      <div class="fgrp">
         <label>Senha</label>
         <input type="password" id="reg-senha" placeholder="Mínimo 6 caracteres">
       </div>
@@ -995,7 +995,7 @@ function setContent(html) { document.getElementById('page-content').innerHTML = 
 //  DASHBOARD
 // ============================================================
 async function renderDashboard() {
-  setContent('<div style="display:flex;align-items:center;justify-content:center;min-height:200px"><div class="spinner"></div></div>');
+  setContent('<div style="display:flex;align-items:center;justify-content:center;min-height:200px"><div class="spin"></div></div>');
   const data = await api('GET', '/api/relatorios/dashboard');
   
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
@@ -1013,50 +1013,50 @@ async function renderDashboard() {
     </div>`).join('');
 
   const pagRows = Object.entries(data.mes?.por_pagamento||{}).map(([k,v]) => `
-    <div class="total-row">
+    <div class="tot-row">
       <span>${pagsLabel[k]||k}</span><span class="font-bold">${fmtR(v)}</span>
     </div>`).join('');
 
   setContent(`
-    <div class="grid grid-4 mb-4">
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#e0e7ff">📈</div>
+    <div class="grid-4 mb-4">
+      <div class="kpi-card">
+        <div class="kpi-ico" style="background:#e0e7ff">📈</div>
         <div>
-          <div class="stat-label">Vendas Hoje</div>
-          <div class="stat-value">${fmtR(data.hoje?.total)}</div>
-          <div class="stat-change stat-up">${data.hoje?.num_vendas} transações</div>
+          <div class="kpi-lbl">Vendas Hoje</div>
+          <div class="kpi-val">${fmtR(data.hoje?.total)}</div>
+          <div class="kpi-change stat-up">${data.hoje?.num_vendas} transações</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#d1fae5">💰</div>
+      <div class="kpi-card">
+        <div class="kpi-ico" style="background:#d1fae5">💰</div>
         <div>
-          <div class="stat-label">Faturamento Mês</div>
-          <div class="stat-value">${fmtR(data.mes?.total)}</div>
-          <div class="stat-change stat-up">${data.mes?.num_vendas} vendas</div>
+          <div class="kpi-lbl">Faturamento Mês</div>
+          <div class="kpi-val">${fmtR(data.mes?.total)}</div>
+          <div class="kpi-change stat-up">${data.mes?.num_vendas} vendas</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#fce7f3">👥</div>
+      <div class="kpi-card">
+        <div class="kpi-ico" style="background:#fce7f3">👥</div>
         <div>
-          <div class="stat-label">Clientes</div>
-          <div class="stat-value">${data.totais?.clientes}</div>
-          <div class="stat-change text-muted">cadastrados</div>
+          <div class="kpi-lbl">Clientes</div>
+          <div class="kpi-val">${data.totais?.clientes}</div>
+          <div class="kpi-change text-muted">cadastrados</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#fef3c7">🎯</div>
+      <div class="kpi-card">
+        <div class="kpi-ico" style="background:#fef3c7">🎯</div>
         <div>
-          <div class="stat-label">Ticket Médio</div>
-          <div class="stat-value">${fmtR(data.hoje?.ticket_medio)}</div>
-          <div class="stat-change text-muted">por venda hoje</div>
+          <div class="kpi-lbl">Ticket Médio</div>
+          <div class="kpi-val">${fmtR(data.hoje?.ticket_medio)}</div>
+          <div class="kpi-change text-muted">por venda hoje</div>
         </div>
       </div>
     </div>
 
-    <div class="grid grid-3 mb-4">
+    <div class="grid-3 mb-4">
       <div class="card" style="grid-column:span 2">
-        <div class="card-header">
-          <span class="card-title">🏆 Produtos Mais Vendidos</span>
+        <div class="card-hdr">
+          <span class="card-ttl">🏆 Produtos Mais Vendidos</span>
           <button class="btn btn-ghost btn-sm" onclick="navigate('relatorios')">Ver relatório →</button>
         </div>
         <div class="chart-bar">${chartBars || '<p class="text-muted">Sem dados</p>'}</div>
@@ -1072,10 +1072,10 @@ async function renderDashboard() {
       </div>
 
       <div class="card">
-        <div class="card-header"><span class="card-title">💳 Pagamentos do Mês</span></div>
+        <div class="card-hdr"><span class="card-ttl">💳 Pagamentos do Mês</span></div>
         ${pagRows || '<p class="text-muted text-sm">Sem vendas</p>'}
         <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
-          <div class="total-row big">
+          <div class="tot-row big">
             <span style="font-size:14px;font-weight:600">Total</span>
             <span>${fmtR(data.mes?.total)}</span>
           </div>
@@ -1083,13 +1083,13 @@ async function renderDashboard() {
       </div>
     </div>
 
-    <div class="grid grid-2">
+    <div class="grid-2">
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">⏱ Últimas Vendas</span>
+        <div class="card-hdr">
+          <span class="card-ttl">⏱ Últimas Vendas</span>
           <button class="btn btn-ghost btn-sm" onclick="navigate('vendas')">Ver todas →</button>
         </div>
-        <div class="table-wrap">
+        <div class="tbl-wrap">
           <table>
             <thead><tr><th>Nº</th><th>Cliente</th><th>Total</th><th>Pagamento</th><th>Status</th></tr></thead>
             <tbody>
@@ -1099,7 +1099,7 @@ async function renderDashboard() {
                   <td>${v.clientes?.nome || '—'}</td>
                   <td class="font-bold">${fmtR(v.total)}</td>
                   <td>${pagBadge(v.forma_pagamento)}</td>
-                  <td><span class="badge badge-green">Finalizada</span></td>
+                  <td><span class="badge bg-green">Finalizada</span></td>
                 </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">Nenhuma venda hoje</td></tr>'}
             </tbody>
           </table>
@@ -1107,12 +1107,12 @@ async function renderDashboard() {
       </div>
 
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">⚠️ Estoque Crítico</span>
+        <div class="card-hdr">
+          <span class="card-ttl">⚠️ Estoque Crítico</span>
           <button class="btn btn-ghost btn-sm" onclick="navigate('estoque')">Ver estoque →</button>
         </div>
-        ${estCritico.length === 0 ? '<div class="empty-state"><div class="empty-icon">✅</div><p>Estoque OK!</p></div>' :
-          `<div class="table-wrap"><table>
+        ${estCritico.length === 0 ? '<div class="empty"><div class="empty-ico">✅</div><p>Estoque OK!</p></div>' :
+          `<div class="tbl-wrap"><table>
             <thead><tr><th>Produto</th><th>Tam/Cor</th><th>Estoque</th></tr></thead>
             <tbody>
               ${estCritico.map(v => `
@@ -1127,8 +1127,8 @@ async function renderDashboard() {
     </div>
 
     <div class="card mt-4">
-      <div class="card-header">
-        <span class="card-title">⚡ Acesso Rápido</span>
+      <div class="card-hdr">
+        <span class="card-ttl">⚡ Acesso Rápido</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
         ${[
@@ -1149,9 +1149,9 @@ async function renderDashboard() {
 }
 
 function pagBadge(p) {
-  const map = { pix:'badge-blue', dinheiro:'badge-green', credito:'badge-purple', debito:'badge-gray', crediario:'badge-yellow' };
+  const map = { pix:'bg-blue', dinheiro:'bg-green', credito:'bg-purple', debito:'bg-gray', crediario:'bg-yellow' };
   const lbl = { pix:'PIX', dinheiro:'Dinheiro', credito:'Crédito', debito:'Débito', crediario:'Crediário' };
-  return `<span class="badge ${map[p]||'badge-gray'}">${lbl[p]||p}</span>`;
+  return `<span class="badge ${map[p]||'bg-gray'}">${lbl[p]||p}</span>`;
 }
 
 // ============================================================
@@ -1160,7 +1160,7 @@ function pagBadge(p) {
 function renderPDV() {
   // Se ainda não tem dados, mostra loading e tenta de novo
   if (STATE.produtos.length === 0 && STATE.categorias.length === 0) {
-    setContent('<div style="display:flex;align-items:center;justify-content:center;min-height:300px"><div><div class="spinner" style="margin:0 auto 12px"></div><p style="color:var(--text-muted);text-align:center">Carregando produtos...</p></div></div>');
+    setContent('<div style="display:flex;align-items:center;justify-content:center;min-height:300px"><div><div class="spin" style="margin:0 auto 12px"></div><p style="color:var(--text-muted);text-align:center">Carregando produtos...</p></div></div>');
     carregarDadosBase().then(() => renderPDV());
     return;
   }
@@ -1172,7 +1172,7 @@ function renderPDV() {
       <!-- PRODUTOS -->
       <div class="pdv-products">
         <div class="pdv-search">
-          <div class="search-bar">
+          <div class="sbar">
             <span>🔍</span>
             <input type="text" id="pdv-search" placeholder="Buscar produto por nome ou código..." oninput="renderPDVGrid()">
           </div>
@@ -1208,9 +1208,9 @@ function renderPDV() {
         </div>
 
         <div class="cart-items" id="cart-items">
-          <div class="empty-state" style="padding:24px">
-            <div class="empty-icon" style="font-size:40px">🛍️</div>
-            <p class="empty-text">Adicione produtos ao carrinho</p>
+          <div class="empty" style="padding:24px">
+            <div class="empty-ico" style="font-size:40px">🛍️</div>
+            <p class="empty-sub">Adicione produtos ao carrinho</p>
           </div>
         </div>
 
@@ -1262,7 +1262,7 @@ function renderPDVGrid() {
   const iconsPadrao = { feminino:'👗', masculino:'👔', infantil:'👶', unissex:'🧢' };
 
   document.getElementById('pdv-grid').innerHTML = prods.length === 0 ?
-    '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">😔</div><p>Nenhum produto</p></div>' :
+    '<div class="empty" style="grid-column:1/-1"><div class="empty-ico">😔</div><p>Nenhum produto</p></div>' :
     prods.map(p => {
       const totalEstoque = (p.variacoes||[]).reduce((s, v) => s + (v.estoque||0), 0);
       const icon = p.icone || iconsPadrao[p.genero] || '🏷️';
@@ -1401,7 +1401,7 @@ function updateCartDisplay() {
   if (!items || !totalEl) return;
 
   if (STATE.cart.length === 0) {
-    items.innerHTML = `<div class="empty-state" style="padding:24px"><div class="empty-icon" style="font-size:40px">🛍️</div><p class="empty-text">Adicione produtos ao carrinho</p></div>`;
+    items.innerHTML = `<div class="empty" style="padding:24px"><div class="empty-ico" style="font-size:40px">🛍️</div><p class="empty-sub">Adicione produtos ao carrinho</p></div>`;
     totalEl.innerHTML = '';
     return;
   }
@@ -1428,9 +1428,9 @@ function updateCartDisplay() {
   const total = subtotal - desconto;
 
   totalEl.innerHTML = `
-    <div class="total-row"><span>Subtotal</span><span>R$ ${subtotal.toFixed(2).replace('.',',')}</span></div>
-    ${desconto > 0 ? `<div class="total-row" style="color:var(--success)"><span>Desconto</span><span>−R$ ${desconto.toFixed(2).replace('.',',')}</span></div>` : ''}
-    <div class="total-row big"><span>TOTAL</span><span>R$ ${Math.max(0, total).toFixed(2).replace('.',',')}</span></div>
+    <div class="tot-row"><span>Subtotal</span><span>R$ ${subtotal.toFixed(2).replace('.',',')}</span></div>
+    ${desconto > 0 ? `<div class="tot-row" style="color:var(--success)"><span>Desconto</span><span>−R$ ${desconto.toFixed(2).replace('.',',')}</span></div>` : ''}
+    <div class="tot-row big"><span>TOTAL</span><span>R$ ${Math.max(0, total).toFixed(2).replace('.',',')}</span></div>
   `;
 }
 
@@ -1492,10 +1492,10 @@ function openRecibo(venda, total) {
       <p style="color:var(--text-muted)">${venda.numero || 'Nova venda'}</p>
     </div>
     <div style="background:var(--bg);border-radius:10px;padding:16px">
-      ${cliente ? `<div class="total-row"><span>Cliente</span><span class="font-bold">${cliente.nome}</span></div>` : ''}
-      <div class="total-row"><span>Pagamento</span><span>${pagBadge(STATE.cartPagamento)}</span></div>
+      ${cliente ? `<div class="tot-row"><span>Cliente</span><span class="font-bold">${cliente.nome}</span></div>` : ''}
+      <div class="tot-row"><span>Pagamento</span><span>${pagBadge(STATE.cartPagamento)}</span></div>
       <div style="border-top:2px dashed var(--border);margin:12px 0"></div>
-      <div class="total-row big"><span>Total</span><span>R$ ${total.toFixed(2).replace('.',',')}</span></div>
+      <div class="tot-row big"><span>Total</span><span>R$ ${total.toFixed(2).replace('.',',')}</span></div>
     </div>
   `, `<button class="btn btn-primary" onclick="closeModal()">Fechar</button>`, 'modal-sm');
 }
@@ -1507,8 +1507,8 @@ function renderProdutos() {
   const prods = STATE.produtos.filter(p => p.ativo);
   setContent(`
     <div class="card">
-      <div class="card-header">
-        <div class="search-bar" style="max-width:300px">
+      <div class="card-hdr">
+        <div class="sbar" style="max-width:300px">
           <span>🔍</span><input type="text" placeholder="Buscar produtos..." oninput="filtrarProdutos(this.value)" id="prod-search">
         </div>
         <div class="flex gap-2">
@@ -1519,7 +1519,7 @@ function renderProdutos() {
           <button class="btn btn-primary" onclick="openProdutoModal()">+ Novo Produto</button>
         </div>
       </div>
-      <div class="table-wrap" id="tabela-produtos">
+      <div class="tbl-wrap" id="tabela-produtos">
         ${renderTabelaProdutos(prods)}
       </div>
     </div>
@@ -1527,7 +1527,7 @@ function renderProdutos() {
 }
 
 function renderTabelaProdutos(prods) {
-  if (prods.length === 0) return `<div class="empty-state"><div class="empty-icon">👗</div><p class="empty-title">Nenhum produto</p><button class="btn btn-primary" onclick="openProdutoModal()">+ Adicionar Produto</button></div>`;
+  if (prods.length === 0) return `<div class="empty"><div class="empty-ico">👗</div><p class="empty-ttl">Nenhum produto</p><button class="btn btn-primary" onclick="openProdutoModal()">+ Adicionar Produto</button></div>`;
   return `
     <table>
       <thead><tr><th>Produto</th><th>Categoria</th><th>Marca</th><th>Preço</th><th>Custo</th><th>Estoque</th><th>Ações</th></tr></thead>
@@ -1540,7 +1540,7 @@ function renderTabelaProdutos(prods) {
               <div class="font-bold">${p.nome}</div>
               <div class="text-xs text-muted">${p.genero}</div>
             </td>
-            <td><span class="badge badge-purple">${p.categorias?.nome||'—'}</span></td>
+            <td><span class="badge bg-purple">${p.categorias?.nome||'—'}</span></td>
             <td class="text-sm text-muted">${p.marca||'—'}</td>
             <td class="font-bold">R$ ${p.preco_venda.toFixed(2).replace('.',',')}</td>
             <td class="text-sm text-muted">R$ ${(p.preco_custo||0).toFixed(2).replace('.',',')} <span style="font-size:10px;color:var(--success)">(${margem}%)</span></td>
@@ -1571,42 +1571,42 @@ function filtrarProdutos(search) {
 function openProdutoModal(id) {
   const prod = id ? STATE.produtos.find(p => p.id === id) : null;
   openModal(prod ? 'Editar Produto' : 'Novo Produto', `
-    <div class="form-row">
-      <div class="form-group">
+    <div class="frow">
+      <div class="fgrp">
         <label>Nome do Produto *</label>
         <input type="text" id="prod-nome" value="${prod?.nome||''}" placeholder="Ex: Blusa Floral Primavera">
       </div>
-      <div class="form-group">
+      <div class="fgrp">
         <label>Marca</label>
         <input type="text" id="prod-marca" value="${prod?.marca||''}" placeholder="Ex: Zara, Farm, ...">
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
+    <div class="frow">
+      <div class="fgrp">
         <label>Categoria</label>
         <select id="prod-cat">
           <option value="">Selecionar...</option>
           ${STATE.categorias.map(c => `<option value="${c.id}" ${prod?.categoria_id===c.id?'selected':''}>${c.nome}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group">
+      <div class="fgrp">
         <label>Gênero</label>
         <select id="prod-genero">
           ${['feminino','masculino','infantil','unissex'].map(g => `<option value="${g}" ${prod?.genero===g?'selected':''}>${g.charAt(0).toUpperCase()+g.slice(1)}</option>`).join('')}
         </select>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
+    <div class="frow">
+      <div class="fgrp">
         <label>Preço de Venda (R$) *</label>
         <input type="number" id="prod-preco" value="${prod?.preco_venda||''}" placeholder="0.00" min="0" step="0.01">
       </div>
-      <div class="form-group">
+      <div class="fgrp">
         <label>Preço de Custo (R$)</label>
         <input type="number" id="prod-custo" value="${prod?.preco_custo||''}" placeholder="0.00" min="0" step="0.01">
       </div>
     </div>
-    <div class="form-group">
+    <div class="fgrp">
       <label>Descrição</label>
       <textarea id="prod-desc" rows="2" placeholder="Descreva o produto...">${prod?.descricao||''}</textarea>
     </div>
@@ -1732,24 +1732,24 @@ function renderEstoque() {
   const ok = todasVar.filter(v => v.estoque > v.estoque_minimo);
   
   setContent(`
-    <div class="grid grid-3 mb-4">
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#d1fae5">✅</div>
-        <div><div class="stat-label">Em estoque normal</div><div class="stat-value">${ok.length}</div></div>
+    <div class="grid-3 mb-4">
+      <div class="kpi-card">
+        <div class="kpi-ico" style="background:#d1fae5">✅</div>
+        <div><div class="kpi-lbl">Em estoque normal</div><div class="kpi-val">${ok.length}</div></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#fef3c7">⚠️</div>
-        <div><div class="stat-label">Estoque crítico</div><div class="stat-value">${critico.filter(v=>v.estoque>0).length}</div></div>
+      <div class="kpi-card">
+        <div class="kpi-ico" style="background:#fef3c7">⚠️</div>
+        <div><div class="kpi-lbl">Estoque crítico</div><div class="kpi-val">${critico.filter(v=>v.estoque>0).length}</div></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#fee2e2">❌</div>
-        <div><div class="stat-label">Esgotados</div><div class="stat-value">${critico.filter(v=>v.estoque===0).length}</div></div>
+      <div class="kpi-card">
+        <div class="kpi-ico" style="background:#fee2e2">❌</div>
+        <div><div class="kpi-lbl">Esgotados</div><div class="kpi-val">${critico.filter(v=>v.estoque===0).length}</div></div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header">
-        <span class="card-title">Controle de Estoque</span>
+      <div class="card-hdr">
+        <span class="card-ttl">Controle de Estoque</span>
         <div class="flex gap-2">
           <button class="btn btn-outline btn-sm" onclick="renderEstoque()">🔄 Atualizar</button>
           <button class="btn btn-primary" onclick="navigate('produtos')">+ Novo Produto</button>
@@ -1760,7 +1760,7 @@ function renderEstoque() {
         <button class="tab-btn" onclick="filterEstoque('critico',this)">⚠️ Crítico (${critico.length})</button>
         <button class="tab-btn" onclick="filterEstoque('ok',this)">✅ Normal (${ok.length})</button>
       </div>
-      <div class="table-wrap" id="estoque-tabela">
+      <div class="tbl-wrap" id="estoque-tabela">
         ${renderEstoqueTabela(todasVar)}
       </div>
     </div>
@@ -1773,7 +1773,7 @@ function renderEstoqueTabela(items) {
     <tbody>
       ${items.map(v => `<tr>
         <td class="font-bold">${v.produto.nome}</td>
-        <td><span class="badge badge-purple">${v.produto.categorias?.nome||'—'}</span></td>
+        <td><span class="badge bg-purple">${v.produto.categorias?.nome||'—'}</span></td>
         <td>${v.tamanho||'—'}</td>
         <td>${v.cor||'—'}</td>
         <td class="font-bold">${v.estoque}</td>
@@ -1797,11 +1797,11 @@ function filterEstoque(tipo, btn) {
 
 function ajustarEstoque(prodId, varId, atual) {
   openModal('Ajustar Estoque', `
-    <div class="form-group">
+    <div class="fgrp">
       <label>Estoque atual: <strong>${atual}</strong></label>
       <input type="number" id="novo-estoque" value="${atual}" min="0" style="margin-top:8px">
     </div>
-    <div class="form-group">
+    <div class="fgrp">
       <label>Motivo do ajuste</label>
       <select id="motivo-ajuste">
         <option>Inventário</option><option>Entrada de mercadoria</option>
@@ -1840,13 +1840,13 @@ async function confirmarAjuste(prodId, varId) {
 function renderClientes() {
   setContent(`
     <div class="card">
-      <div class="card-header">
-        <div class="search-bar" style="max-width:300px">
+      <div class="card-hdr">
+        <div class="sbar" style="max-width:300px">
           <span>🔍</span><input type="text" placeholder="Buscar clientes..." oninput="filtrarClientes(this.value)">
         </div>
         <button class="btn btn-primary" onclick="openClienteModal()">+ Novo Cliente</button>
       </div>
-      <div class="table-wrap" id="tabela-clientes">
+      <div class="tbl-wrap" id="tabela-clientes">
         ${renderTabelaClientes(STATE.clientes.filter(c=>c.ativo))}
       </div>
     </div>
@@ -1854,7 +1854,7 @@ function renderClientes() {
 }
 
 function renderTabelaClientes(clientes) {
-  if (clientes.length === 0) return `<div class="empty-state"><div class="empty-icon">👥</div><p class="empty-title">Nenhum cliente</p><button class="btn btn-primary" onclick="openClienteModal()">+ Adicionar</button></div>`;
+  if (clientes.length === 0) return `<div class="empty"><div class="empty-ico">👥</div><p class="empty-ttl">Nenhum cliente</p><button class="btn btn-primary" onclick="openClienteModal()">+ Adicionar</button></div>`;
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   return `
     <table>
@@ -1867,7 +1867,7 @@ function renderTabelaClientes(clientes) {
           </td>
           <td>${c.telefone||'—'}</td>
           <td class="font-bold">${fmtR(c.total_compras)}</td>
-          <td><span class="badge badge-blue">${c.num_compras}</span></td>
+          <td><span class="badge bg-blue">${c.num_compras}</span></td>
           <td><span class="tag">⭐ ${c.pontos}</span></td>
           <td class="text-sm text-muted">${c.ultima_compra ? new Date(c.ultima_compra).toLocaleDateString('pt-BR') : '—'}</td>
           <td>
@@ -1889,24 +1889,24 @@ function filtrarClientes(q) {
 function openClienteModal(id) {
   const c = id ? STATE.clientes.find(x => x.id === id) : null;
   openModal(c ? 'Editar Cliente' : 'Novo Cliente', `
-    <div class="form-row">
-      <div class="form-group"><label>Nome *</label><input type="text" id="cli-nome" value="${c?.nome||''}"></div>
-      <div class="form-group"><label>CPF</label><input type="text" id="cli-cpf" value="${c?.cpf||''}" placeholder="000.000.000-00"></div>
+    <div class="frow">
+      <div class="fgrp"><label>Nome *</label><input type="text" id="cli-nome" value="${c?.nome||''}"></div>
+      <div class="fgrp"><label>CPF</label><input type="text" id="cli-cpf" value="${c?.cpf||''}" placeholder="000.000.000-00"></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Email</label><input type="email" id="cli-email" value="${c?.email||''}"></div>
-      <div class="form-group"><label>Telefone</label><input type="text" id="cli-tel" value="${c?.telefone||''}" placeholder="(11) 99999-9999"></div>
+    <div class="frow">
+      <div class="fgrp"><label>Email</label><input type="email" id="cli-email" value="${c?.email||''}"></div>
+      <div class="fgrp"><label>Telefone</label><input type="text" id="cli-tel" value="${c?.telefone||''}" placeholder="(11) 99999-9999"></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Data de Nascimento</label><input type="date" id="cli-nasc" value="${c?.data_nascimento||''}"></div>
-      <div class="form-group"><label>Gênero</label><select id="cli-genero">
+    <div class="frow">
+      <div class="fgrp"><label>Data de Nascimento</label><input type="date" id="cli-nasc" value="${c?.data_nascimento||''}"></div>
+      <div class="fgrp"><label>Gênero</label><select id="cli-genero">
         <option value="">Selecionar</option>
         <option value="feminino" ${c?.genero==='feminino'?'selected':''}>Feminino</option>
         <option value="masculino" ${c?.genero==='masculino'?'selected':''}>Masculino</option>
         <option value="outro" ${c?.genero==='outro'?'selected':''}>Outro</option>
       </select></div>
     </div>
-    <div class="form-group"><label>Observações</label><textarea id="cli-obs" rows="2">${c?.observacoes||''}</textarea></div>
+    <div class="fgrp"><label>Observações</label><textarea id="cli-obs" rows="2">${c?.observacoes||''}</textarea></div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     <button class="btn btn-primary" onclick="salvarCliente('${id||''}')">💾 Salvar</button>
@@ -1957,10 +1957,10 @@ async function verCliente(id) {
   } catch(e) {}
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   openModal(`👤 ${c.nome}`, `
-    <div class="grid grid-2 mb-4" style="gap:12px">
+    <div class="grid-2 mb-4" style="gap:12px">
       <div style="background:var(--bg);padding:16px;border-radius:10px">
         <div class="text-xs text-muted mb-1">Total em Compras</div>
-        <div style="font-size:24px;font-weight:800;color:var(--primary)">${fmtR(c.total_compras)}</div>
+        <div style="font-size:24px;font-weight:800;color:var(--brand)">${fmtR(c.total_compras)}</div>
       </div>
       <div style="background:var(--bg);padding:16px;border-radius:10px">
         <div class="text-xs text-muted mb-1">Pontos Acumulados</div>
@@ -1999,11 +1999,11 @@ async function renderVendas() {
     const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
     setContent(`
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">Histórico de Vendas</span>
+        <div class="card-hdr">
+          <span class="card-ttl">Histórico de Vendas</span>
           <button class="btn btn-primary" onclick="navigate('pdv')">🛒 Nova Venda</button>
         </div>
-        <div class="table-wrap">
+        <div class="tbl-wrap">
           <table>
             <thead><tr><th>Nº</th><th>Cliente</th><th>Vendedor</th><th>Total</th><th>Pagamento</th><th>Status</th><th>Data</th><th></th></tr></thead>
             <tbody>
@@ -2025,7 +2025,7 @@ async function renderVendas() {
       </div>
     `);
   } catch(e) {
-    setContent(`<div class="empty"><div class="empty-icon">⚠️</div><p>${e.message}</p><button class="btn btn-primary" onclick="renderVendas()">Tentar novamente</button></div>`);
+    setContent(`<div class="empty"><div class="empty-ico">⚠️</div><p>${e.message}</p><button class="btn btn-primary" onclick="renderVendas()">Tentar novamente</button></div>`);
   }
 }
 
@@ -2047,9 +2047,9 @@ function verVenda(id) {
         <div>${pagBadge(v.forma_pagamento)}</div>
       </div>
     </div>
-    <div class="total-row"><span>Subtotal</span><span>${fmtR(v.subtotal)}</span></div>
-    ${v.desconto_valor > 0 ? `<div class="total-row" style="color:var(--success)"><span>Desconto</span><span>−${fmtR(v.desconto_valor)}</span></div>` : ''}
-    <div class="total-row big" style="border-top:2px solid var(--border);padding-top:10px;margin-top:6px"><span>Total</span><span>${fmtR(v.total)}</span></div>
+    <div class="tot-row"><span>Subtotal</span><span>${fmtR(v.subtotal)}</span></div>
+    ${v.desconto_valor > 0 ? `<div class="tot-row" style="color:var(--success)"><span>Desconto</span><span>−${fmtR(v.desconto_valor)}</span></div>` : ''}
+    <div class="tot-row big" style="border-top:2px solid var(--border);padding-top:10px;margin-top:6px"><span>Total</span><span>${fmtR(v.total)}</span></div>
     <p class="text-xs text-muted mt-3">${new Date(v.criado_em).toLocaleString('pt-BR')}</p>
   `, `<button class="btn btn-primary" onclick="closeModal()">Fechar</button>`, 'modal-sm');
 }
@@ -2061,8 +2061,8 @@ function renderFuncionarios() {
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   setContent(`
     <div class="card">
-      <div class="card-header">
-        <span class="card-title">Equipe</span>
+      <div class="card-hdr">
+        <span class="card-ttl">Equipe</span>
         <button class="btn btn-primary" onclick="openFuncModal()">+ Novo Funcionário</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="func-grid">
@@ -2075,7 +2075,7 @@ function renderFuncionarios() {
                 <div class="text-sm text-muted">${f.cargo}</div>
               </div>
             </div>
-            <div class="grid grid-2 gap-2 mb-3">
+            <div class="grid-2 gap-2 mb-3">
               <div style="background:var(--bg);padding:10px;border-radius:8px">
                 <div class="text-xs text-muted">Salário Base</div>
                 <div class="font-bold">${fmtR(f.salario_base)}</div>
@@ -2087,7 +2087,7 @@ function renderFuncionarios() {
             </div>
             <div style="margin-bottom:12px">
               <div class="flex justify-between text-xs text-muted mb-1"><span>Meta Mensal</span><span>${fmtR(f.meta_mensal)}</span></div>
-              <div class="progress"><div class="progress-bar" style="width:${Math.min(100, Math.random()*120)}%;background:${f.comissao_pct>2?'var(--success)':'var(--primary)'}"></div></div>
+              <div class="progress"><div class="progress-bar" style="width:${Math.min(100, Math.random()*120)}%;background:${f.comissao_pct>2?'var(--success)':'var(--brand)'}"></div></div>
             </div>
             <div class="flex gap-2">
               <button class="btn btn-outline btn-sm flex-1" onclick="openFuncModal('${f.id}')">✏️ Editar</button>
@@ -2102,20 +2102,20 @@ function renderFuncionarios() {
 function openFuncModal(id) {
   const f = id ? STATE.funcionarios.find(x => x.id === id) : null;
   openModal(f ? 'Editar Funcionário' : 'Novo Funcionário', `
-    <div class="form-row">
-      <div class="form-group"><label>Nome *</label><input type="text" id="func-nome" value="${f?.nome||''}"></div>
-      <div class="form-group"><label>Cargo</label><input type="text" id="func-cargo" value="${f?.cargo||'Vendedor'}" placeholder="Ex: Vendedor, Gerente..."></div>
+    <div class="frow">
+      <div class="fgrp"><label>Nome *</label><input type="text" id="func-nome" value="${f?.nome||''}"></div>
+      <div class="fgrp"><label>Cargo</label><input type="text" id="func-cargo" value="${f?.cargo||'Vendedor'}" placeholder="Ex: Vendedor, Gerente..."></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Email</label><input type="email" id="func-email" value="${f?.email||''}"></div>
-      <div class="form-group"><label>Telefone</label><input type="text" id="func-tel" value="${f?.telefone||''}"></div>
+    <div class="frow">
+      <div class="fgrp"><label>Email</label><input type="email" id="func-email" value="${f?.email||''}"></div>
+      <div class="fgrp"><label>Telefone</label><input type="text" id="func-tel" value="${f?.telefone||''}"></div>
     </div>
-    <div class="form-row-3">
-      <div class="form-group"><label>Salário Base (R$)</label><input type="number" id="func-sal" value="${f?.salario_base||0}" min="0"></div>
-      <div class="form-group"><label>Comissão (%)</label><input type="number" id="func-com" value="${f?.comissao_pct||0}" min="0" max="100" step="0.1"></div>
-      <div class="form-group"><label>Meta Mensal (R$)</label><input type="number" id="func-meta" value="${f?.meta_mensal||0}" min="0"></div>
+    <div class="frow-3">
+      <div class="fgrp"><label>Salário Base (R$)</label><input type="number" id="func-sal" value="${f?.salario_base||0}" min="0"></div>
+      <div class="fgrp"><label>Comissão (%)</label><input type="number" id="func-com" value="${f?.comissao_pct||0}" min="0" max="100" step="0.1"></div>
+      <div class="fgrp"><label>Meta Mensal (R$)</label><input type="number" id="func-meta" value="${f?.meta_mensal||0}" min="0"></div>
     </div>
-    <div class="form-group">
+    <div class="fgrp">
       <label>Data de Admissão</label>
       <input type="date" id="func-admissao" value="${f?.data_admissao||''}">
     </div>
@@ -2187,14 +2187,14 @@ async function renderComissoes() {
       };
     });
   } catch(e) {
-    setContent(`<div class="empty"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`);
+    setContent(`<div class="empty"><div class="empty-ico">⚠️</div><p>${e.message}</p></div>`);
     return;
   }
 
   setContent(`
     <div class="card mb-4">
-      <div class="card-header">
-        <span class="card-title">🏆 Ranking de Vendas — ${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</span>
+      <div class="card-hdr">
+        <span class="card-ttl">🏆 Ranking de Vendas — ${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</span>
       </div>
       ${comissoes.sort((a,b) => b.totalVendas - a.totalVendas).map((f, i) => `
         <div style="display:flex;align-items:center;gap:16px;padding:16px;border-bottom:1px solid var(--border);${i===0?'background:linear-gradient(90deg,#fef9c3,transparent)':''}">
@@ -2203,7 +2203,7 @@ async function renderComissoes() {
           <div style="flex:1">
             <div class="font-bold">${f.nome} <span class="text-xs text-muted">${f.cargo}</span></div>
             <div class="flex items-center gap-2 mt-1">
-              <div class="progress" style="flex:1;height:6px"><div class="progress-bar" style="width:${f.pctMeta}%;background:${f.pctMeta>=100?'var(--success)':'var(--primary)'}"></div></div>
+              <div class="progress" style="flex:1;height:6px"><div class="progress-bar" style="width:${f.pctMeta}%;background:${f.pctMeta>=100?'var(--success)':'var(--brand)'}"></div></div>
               <span class="text-xs text-muted">${f.pctMeta.toFixed(0)}% da meta</span>
             </div>
           </div>
@@ -2243,44 +2243,44 @@ async function renderFinanceiro() {
   const saldo = entradas - saidas;
 
   setContent(`
-    <div class="grid grid-3 mb-4">
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#d1fae5">💚</div>
-        <div><div class="stat-label">Total Entradas</div><div class="stat-value">${fmtR(entradas)}</div></div>
+    <div class="grid-3 mb-4">
+      <div class="kpi-card">
+        <div class="kpi-ico" style="background:#d1fae5">💚</div>
+        <div><div class="kpi-lbl">Total Entradas</div><div class="kpi-val">${fmtR(entradas)}</div></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#fee2e2">❌</div>
-        <div><div class="stat-label">Total Saídas</div><div class="stat-value">${fmtR(saidas)}</div></div>
+      <div class="kpi-card">
+        <div class="kpi-ico" style="background:#fee2e2">❌</div>
+        <div><div class="kpi-lbl">Total Saídas</div><div class="kpi-val">${fmtR(saidas)}</div></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#e0e7ff">💰</div>
-        <div><div class="stat-label">Saldo</div><div class="stat-value" style="color:${saldo>=0?'var(--success)':'var(--danger)'}">${fmtR(saldo)}</div></div>
+      <div class="kpi-card">
+        <div class="kpi-ico" style="background:#e0e7ff">💰</div>
+        <div><div class="kpi-lbl">Saldo</div><div class="kpi-val" style="color:${saldo>=0?'var(--success)':'var(--danger)'}">${fmtR(saldo)}</div></div>
       </div>
     </div>
 
-    <div class="grid grid-2 mb-4">
+    <div class="grid-2 mb-4">
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">💳 Status do Caixa</span>
-          ${cx?.status === 'aberto' ? '<span class="badge badge-green">Aberto</span>' : '<span class="badge badge-red">Fechado</span>'}
+        <div class="card-hdr">
+          <span class="card-ttl">💳 Status do Caixa</span>
+          ${cx?.status === 'aberto' ? '<span class="badge bg-green">Aberto</span>' : '<span class="badge bg-red">Fechado</span>'}
         </div>
         ${cx ? `
-          <div class="total-row"><span>Saldo Inicial</span><span>${fmtR(cx.saldo_inicial)}</span></div>
-          <div class="total-row"><span>Total Vendas</span><span>${fmtR(cx.total_vendas)}</span></div>
-          <div class="total-row big mt-2"><span>Saldo Atual</span><span>${fmtR((cx.saldo_inicial||0)+(cx.total_vendas||0))}</span></div>
+          <div class="tot-row"><span>Saldo Inicial</span><span>${fmtR(cx.saldo_inicial)}</span></div>
+          <div class="tot-row"><span>Total Vendas</span><span>${fmtR(cx.total_vendas)}</span></div>
+          <div class="tot-row big mt-2"><span>Saldo Atual</span><span>${fmtR((cx.saldo_inicial||0)+(cx.total_vendas||0))}</span></div>
           <div class="flex gap-2 mt-3">
             <button class="btn btn-warning btn-sm" onclick="openSangria()">Sangria</button>
             <button class="btn btn-danger btn-sm" onclick="fecharCaixa()">Fechar Caixa</button>
           </div>` :
-          `<div class="empty-state" style="padding:20px">
+          `<div class="empty" style="padding:20px">
             <p class="text-muted mb-2">Nenhum caixa aberto</p>
             <button class="btn btn-success" onclick="abrirCaixa()">Abrir Caixa</button>
           </div>`}
       </div>
 
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">📊 Pagamentos por forma</span>
+        <div class="card-hdr">
+          <span class="card-ttl">📊 Pagamentos por forma</span>
         </div>
         ${['dinheiro','pix','debito','credito','crediario'].map(p => {
           const total = movs.filter(m => m.tipo==='entrada' && m.forma_pagamento===p).reduce((s,m)=>s+m.valor,0);
@@ -2298,11 +2298,11 @@ async function renderFinanceiro() {
     </div>
 
     <div class="card">
-      <div class="card-header">
-        <span class="card-title">📋 Movimentações</span>
+      <div class="card-hdr">
+        <span class="card-ttl">📋 Movimentações</span>
         <button class="btn btn-primary btn-sm" onclick="openMovimentacaoModal()">+ Lançar</button>
       </div>
-      <div class="table-wrap">
+      <div class="tbl-wrap">
         <table>
           <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Forma</th><th>Valor</th></tr></thead>
           <tbody>
@@ -2323,7 +2323,7 @@ async function renderFinanceiro() {
 
 function abrirCaixa() {
   openModal('Abrir Caixa', `
-    <div class="form-group"><label>Saldo Inicial (R$)</label><input type="number" id="caixa-inicial" value="200" min="0" step="0.01"></div>
+    <div class="fgrp"><label>Saldo Inicial (R$)</label><input type="number" id="caixa-inicial" value="200" min="0" step="0.01"></div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     <button class="btn btn-success" onclick="confirmarAbrirCaixa()">Abrir Caixa</button>
@@ -2358,8 +2358,8 @@ async function fecharCaixa() {
 
 function openSangria() {
   openModal('💸 Sangria de Caixa', `
-    <div class="form-group"><label>Valor (R$)</label><input type="number" id="sangria-val" min="0" step="0.01" placeholder="0.00"></div>
-    <div class="form-group"><label>Motivo</label><input type="text" id="sangria-desc" placeholder="Ex: Pagamento fornecedor..."></div>
+    <div class="fgrp"><label>Valor (R$)</label><input type="number" id="sangria-val" min="0" step="0.01" placeholder="0.00"></div>
+    <div class="fgrp"><label>Motivo</label><input type="text" id="sangria-desc" placeholder="Ex: Pagamento fornecedor..."></div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     <button class="btn btn-warning" onclick="confirmarSangria()">Confirmar</button>
@@ -2387,14 +2387,14 @@ async function confirmarSangria() {
 
 function openMovimentacaoModal() {
   openModal('Novo Lançamento', `
-    <div class="form-group">
+    <div class="fgrp">
       <label>Tipo</label>
       <select id="mov-tipo"><option value="entrada">Entrada</option><option value="saida">Saída</option></select>
     </div>
-    <div class="form-group"><label>Descrição *</label><input type="text" id="mov-desc" placeholder="Ex: Aluguel, compra de mercadoria..."></div>
-    <div class="form-row">
-      <div class="form-group"><label>Valor (R$) *</label><input type="number" id="mov-valor" min="0" step="0.01"></div>
-      <div class="form-group"><label>Categoria</label><input type="text" id="mov-cat" placeholder="Ex: despesa, suprimento..."></div>
+    <div class="fgrp"><label>Descrição *</label><input type="text" id="mov-desc" placeholder="Ex: Aluguel, compra de mercadoria..."></div>
+    <div class="frow">
+      <div class="fgrp"><label>Valor (R$) *</label><input type="number" id="mov-valor" min="0" step="0.01"></div>
+      <div class="fgrp"><label>Categoria</label><input type="text" id="mov-cat" placeholder="Ex: despesa, suprimento..."></div>
     </div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
@@ -2432,20 +2432,20 @@ async function renderCrediario() {
     const d = await api('GET', '/api/relatorios/crediario');
     crediarios = Array.isArray(d) ? d : [];
   } catch(e) {
-    setContent(`<div class="empty"><div class="empty-icon">⚠️</div><p class="empty-sub">${e.message}</p><button class="btn btn-primary" onclick="renderCrediario()">Tentar novamente</button></div>`);
+    setContent(`<div class="empty"><div class="empty-ico">⚠️</div><p class="empty-sub">${e.message}</p><button class="btn btn-primary" onclick="renderCrediario()">Tentar novamente</button></div>`);
     return;
   }
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   const totalSaldo = crediarios.filter(c=>c.status!=='quitado').reduce((s,c)=>s+c.saldo,0);
 
   setContent(`
-    <div class="grid grid-3 mb-4">
-      <div class="stat-card"><div class="stat-icon" style="background:#e0e7ff">📅</div><div><div class="stat-label">A Receber</div><div class="stat-value">${fmtR(totalSaldo)}</div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:#fee2e2">⚠️</div><div><div class="stat-label">Inadimplentes</div><div class="stat-value">${crediarios.filter(c=>c.status==='inadimplente').length}</div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:#d1fae5">✅</div><div><div class="stat-label">Quitados</div><div class="stat-value">${crediarios.filter(c=>c.status==='quitado').length}</div></div></div>
+    <div class="grid-3 mb-4">
+      <div class="kpi-card"><div class="kpi-ico" style="background:#e0e7ff">📅</div><div><div class="kpi-lbl">A Receber</div><div class="kpi-val">${fmtR(totalSaldo)}</div></div></div>
+      <div class="kpi-card"><div class="kpi-ico" style="background:#fee2e2">⚠️</div><div><div class="kpi-lbl">Inadimplentes</div><div class="kpi-val">${crediarios.filter(c=>c.status==='inadimplente').length}</div></div></div>
+      <div class="kpi-card"><div class="kpi-ico" style="background:#d1fae5">✅</div><div><div class="kpi-lbl">Quitados</div><div class="kpi-val">${crediarios.filter(c=>c.status==='quitado').length}</div></div></div>
     </div>
     <div class="card">
-      <div class="card-header"><span class="card-title">📅 Crediário</span></div>
+      <div class="card-hdr"><span class="card-ttl">📅 Crediário</span></div>
       <table>
         <thead><tr><th>Cliente</th><th>Venda</th><th>Total</th><th>Pago</th><th>Saldo</th><th>Parcelas</th><th>Vencimento</th><th>Status</th><th>Ação</th></tr></thead>
         <tbody>
@@ -2468,8 +2468,8 @@ async function renderCrediario() {
 
 function registrarPagamento(id) {
   openModal('💰 Registrar Pagamento', `
-    <div class="form-group"><label>Valor Recebido (R$)</label><input type="number" id="pag-val" min="0" step="0.01" placeholder="0.00"></div>
-    <div class="form-group"><label>Forma de Pagamento</label>
+    <div class="fgrp"><label>Valor Recebido (R$)</label><input type="number" id="pag-val" min="0" step="0.01" placeholder="0.00"></div>
+    <div class="fgrp"><label>Forma de Pagamento</label>
       <select id="pag-forma">
         <option value="dinheiro">💵 Dinheiro</option>
         <option value="pix">⚡ PIX</option>
@@ -2498,18 +2498,18 @@ async function renderPedidos() {
 
   setContent(`
     <div class="card">
-      <div class="card-header">
-        <span class="card-title">📋 Pedidos e Reservas</span>
+      <div class="card-hdr">
+        <span class="card-ttl">📋 Pedidos e Reservas</span>
         <button class="btn btn-primary" onclick="openPedidoModal()">+ Novo Pedido</button>
       </div>
-      <div class="table-wrap">
+      <div class="tbl-wrap">
         <table>
           <thead><tr><th>Nº</th><th>Cliente</th><th>Tipo</th><th>Total</th><th>Status</th><th>Data</th><th>Ações</th></tr></thead>
           <tbody>
             ${pedidos.map(p => `<tr>
               <td class="font-bold">${p.numero}</td>
               <td class="text-sm">${p.clientes?.nome||"—"}</td>
-              <td><span class="badge badge-purple">${p.tipo}</span></td>
+              <td><span class="badge bg-purple">${p.tipo}</span></td>
               <td class="font-bold">${fmtR(p.total)}</td>
               <td><span class="badge ${stMap[p.status]}">${stLabel[p.status]}</span></td>
               <td class="text-sm text-muted">${new Date(p.criado_em).toLocaleDateString('pt-BR')}</td>
@@ -2528,22 +2528,22 @@ async function renderPedidos() {
 
 function openPedidoModal() {
   openModal('Novo Pedido', `
-    <div class="form-group"><label>Cliente</label><select id="ped-cli">
+    <div class="fgrp"><label>Cliente</label><select id="ped-cli">
       <option value="">Consumidor</option>
       ${STATE.clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}
     </select></div>
-    <div class="form-row">
-      <div class="form-group"><label>Tipo</label><select id="ped-tipo">
+    <div class="frow">
+      <div class="fgrp"><label>Tipo</label><select id="ped-tipo">
         <option value="balcao">Balcão</option>
         <option value="reserva">Reserva</option>
         <option value="online">Online</option>
       </select></div>
-      <div class="form-group"><label>Vendedor</label><select id="ped-func">
+      <div class="fgrp"><label>Vendedor</label><select id="ped-func">
         <option value="">—</option>
         ${STATE.funcionarios.map(f => `<option value="${f.id}">${f.nome}</option>`).join('')}
       </select></div>
     </div>
-    <div class="form-group"><label>Observações</label><textarea id="ped-obs" rows="2" placeholder="Tamanhos desejados, prazo de retirada..."></textarea></div>
+    <div class="fgrp"><label>Observações</label><textarea id="ped-obs" rows="2" placeholder="Tamanhos desejados, prazo de retirada..."></textarea></div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     <button class="btn btn-primary" onclick="salvarPedido()">Criar Pedido</button>
@@ -2592,16 +2592,16 @@ function renderRelatorios() {
   const maxVal = Math.max(...diasData.map(([,v])=>v),1);
 
   setContent(`
-    <div class="grid grid-4 mb-4">
-      <div class="stat-card"><div class="stat-icon" style="background:#d1fae5">💰</div><div><div class="stat-label">Faturamento Total</div><div class="stat-value">${fmtR(totalVendas)}</div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:#fce7f3">📈</div><div><div class="stat-label">Margem Média</div><div class="stat-value">${margemMedia.toFixed(0)}%</div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:#e0e7ff">🎯</div><div><div class="stat-label">Ticket Médio</div><div class="stat-value">${fmtR(STATE.vendas.length?totalVendas/STATE.vendas.length:0)}</div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:#fef3c7">🏷️</div><div><div class="stat-label">Total de Vendas</div><div class="stat-value">${STATE.vendas.length}</div></div></div>
+    <div class="grid-4 mb-4">
+      <div class="kpi-card"><div class="kpi-ico" style="background:#d1fae5">💰</div><div><div class="kpi-lbl">Faturamento Total</div><div class="kpi-val">${fmtR(totalVendas)}</div></div></div>
+      <div class="kpi-card"><div class="kpi-ico" style="background:#fce7f3">📈</div><div><div class="kpi-lbl">Margem Média</div><div class="kpi-val">${margemMedia.toFixed(0)}%</div></div></div>
+      <div class="kpi-card"><div class="kpi-ico" style="background:#e0e7ff">🎯</div><div><div class="kpi-lbl">Ticket Médio</div><div class="kpi-val">${fmtR(STATE.vendas.length?totalVendas/STATE.vendas.length:0)}</div></div></div>
+      <div class="kpi-card"><div class="kpi-ico" style="background:#fef3c7">🏷️</div><div><div class="kpi-lbl">Total de Vendas</div><div class="kpi-val">${STATE.vendas.length}</div></div></div>
     </div>
 
-    <div class="grid grid-2 mb-4">
+    <div class="grid-2 mb-4">
       <div class="card">
-        <div class="card-header"><span class="card-title">📊 Vendas por Dia</span></div>
+        <div class="card-hdr"><span class="card-ttl">📊 Vendas por Dia</span></div>
         <div class="chart-bar">
           ${diasData.map(([dia, val]) => `
             <div class="chart-bar-col">
@@ -2613,7 +2613,7 @@ function renderRelatorios() {
       </div>
 
       <div class="card">
-        <div class="card-header"><span class="card-title">👥 Top Clientes</span></div>
+        <div class="card-hdr"><span class="card-ttl">👥 Top Clientes</span></div>
         ${STATE.clientes.sort((a,b)=>b.total_compras-a.total_compras).slice(0,5).map((c,i) => `
           <div class="flex items-center gap-3 mb-3">
             <span style="font-weight:900;color:var(--text-muted);width:20px">#${i+1}</span>
@@ -2627,8 +2627,8 @@ function renderRelatorios() {
     </div>
 
     <div class="card">
-      <div class="card-header"><span class="card-title">📦 Análise de Produtos</span></div>
-      <div class="table-wrap">
+      <div class="card-hdr"><span class="card-ttl">📦 Análise de Produtos</span></div>
+      <div class="tbl-wrap">
         <table>
           <thead><tr><th>Produto</th><th>Categoria</th><th>Preço Venda</th><th>Custo</th><th>Margem</th><th>Estoque Total</th><th>Valor em Estoque</th></tr></thead>
           <tbody>
@@ -2637,7 +2637,7 @@ function renderRelatorios() {
               const margem = p.preco_custo > 0 ? ((p.preco_venda-p.preco_custo)/p.preco_custo*100).toFixed(0) : '—';
               return `<tr>
                 <td class="font-bold">${p.nome}</td>
-                <td><span class="badge badge-purple">${p.categorias?.nome||'—'}</span></td>
+                <td><span class="badge bg-purple">${p.categorias?.nome||'—'}</span></td>
                 <td>${fmtR(p.preco_venda)}</td>
                 <td class="text-muted">${fmtR(p.preco_custo)}</td>
                 <td><span class="badge ${margem==='—'?'badge-gray':parseInt(margem)>=50?'badge-green':parseInt(margem)>=30?'badge-yellow':'badge-red'}">${margem}${margem!=='—'?'%':''}</span></td>
@@ -2662,11 +2662,11 @@ async function renderConfiguracoes() {
     l = await api('GET', '/api/loja') || STATE.loja || {};
   } catch(e) {}
   setContent(`
-    <div class="grid grid-2">
+    <div class="grid-2">
       <div class="card">
-        <div class="card-header"><span class="card-title">🏪 Dados da Loja</span></div>
-        <div class="form-group"><label>Nome da Loja</label><input type="text" id="cfg-nome" value="${l?.nome||''}"></div>
-        <div class="form-group"><label>Tipo de Negócio</label>
+        <div class="card-hdr"><span class="card-ttl">🏪 Dados da Loja</span></div>
+        <div class="fgrp"><label>Nome da Loja</label><input type="text" id="cfg-nome" value="${l?.nome||''}"></div>
+        <div class="fgrp"><label>Tipo de Negócio</label>
           <select id="cfg-tipo">
             <option value="moda" ${l?.tipo==='moda'?'selected':''}>👗 Moda e Vestuário</option>
             <option value="calcados">👟 Calçados</option>
@@ -2674,20 +2674,20 @@ async function renderConfiguracoes() {
             <option value="multiuso">🏪 Multiuso</option>
           </select>
         </div>
-        <div class="form-group"><label>CNPJ</label><input type="text" id="cfg-cnpj" placeholder="00.000.000/0001-00"></div>
-        <div class="form-group"><label>Telefone</label><input type="text" id="cfg-tel" placeholder="(11) 3000-0000"></div>
-        <div class="form-group"><label>Email</label><input type="email" id="cfg-email"></div>
-        <div class="form-group"><label>Endereço</label><input type="text" id="cfg-end"></div>
-        <div class="form-row">
-          <div class="form-group"><label>Cidade</label><input type="text" id="cfg-cidade"></div>
-          <div class="form-group"><label>Estado</label><input type="text" id="cfg-estado" placeholder="SP"></div>
+        <div class="fgrp"><label>CNPJ</label><input type="text" id="cfg-cnpj" placeholder="00.000.000/0001-00"></div>
+        <div class="fgrp"><label>Telefone</label><input type="text" id="cfg-tel" placeholder="(11) 3000-0000"></div>
+        <div class="fgrp"><label>Email</label><input type="email" id="cfg-email"></div>
+        <div class="fgrp"><label>Endereço</label><input type="text" id="cfg-end"></div>
+        <div class="frow">
+          <div class="fgrp"><label>Cidade</label><input type="text" id="cfg-cidade"></div>
+          <div class="fgrp"><label>Estado</label><input type="text" id="cfg-estado" placeholder="SP"></div>
         </div>
         <button class="btn btn-primary" onclick="toast('Dados salvos!','success')">💾 Salvar</button>
       </div>
 
       <div>
         <div class="card mb-4">
-          <div class="card-header"><span class="card-title">👤 Categorias</span></div>
+          <div class="card-hdr"><span class="card-ttl">👤 Categorias</span></div>
           <div id="cats-list">
             ${STATE.categorias.map(c => `
               <div class="flex items-center justify-between mb-2">
@@ -2702,7 +2702,7 @@ async function renderConfiguracoes() {
         </div>
 
         <div class="card">
-          <div class="card-header"><span class="card-title">🔑 Usuários do Sistema</span></div>
+          <div class="card-hdr"><span class="card-ttl">🔑 Usuários do Sistema</span></div>
           <div class="flex items-center gap-3 mb-3">
             <div class="avatar">${STATE.user?.nome?.[0]||'U'}</div>
             <div>
