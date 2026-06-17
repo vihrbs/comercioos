@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const supabase = require('../utils/supabase');
 const { authMiddleware } = require('../middleware/auth');
 
+// POST /api/auth/register - Registrar nova loja + admin
 router.post('/register', async (req, res) => {
   try {
     const { nome_loja, nome, email, senha, tipo } = req.body;
@@ -12,14 +13,25 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Campos obrigatórios faltando' });
     }
 
+    // Verifica email duplicado
     const { data: existente } = await supabase
       .from('usuarios').select('id').eq('email', email).single();
     if (existente) return res.status(409).json({ error: 'Email já cadastrado' });
 
+    // Cria loja com trial de 14 dias
+    const trialExpira = new Date();
+    trialExpira.setDate(trialExpira.getDate() + 14);
+
     const { data: loja, error: lojaErr } = await supabase
-      .from('lojas').insert({ nome: nome_loja, tipo: tipo || 'moda' }).select().single();
+      .from('lojas').insert({
+        nome: nome_loja,
+        tipo: tipo || 'moda',
+        status: 'trial',
+        trial_expires_at: trialExpira.toISOString()
+      }).select().single();
     if (lojaErr) throw lojaErr;
 
+    // Cria usuário admin
     const senha_hash = await bcrypt.hash(senha, 10);
     const { data: usuario, error: userErr } = await supabase
       .from('usuarios').insert({
@@ -27,6 +39,7 @@ router.post('/register', async (req, res) => {
       }).select().single();
     if (userErr) throw userErr;
 
+    // Cria categorias padrão
     const categoriasPadrao = ['Feminino', 'Masculino', 'Infantil', 'Acessórios', 'Calçados'];
     await supabase.from('categorias').insert(
       categoriasPadrao.map(nome => ({ loja_id: loja.id, nome }))
@@ -45,6 +58,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// POST /api/auth/login
 router.post('/login', async (req, res) => {
   try {
     const { email, senha } = req.body;
@@ -76,6 +90,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// GET /api/auth/me
 router.get('/me', authMiddleware, async (req, res) => {
   const { data: usuario } = await supabase
     .from('usuarios').select('*, lojas(*)').eq('id', req.user.id).single();
