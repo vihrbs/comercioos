@@ -1503,27 +1503,40 @@ function openRecibo(venda, total) {
 // ============================================================
 //  PRODUTOS
 // ============================================================
-function renderProdutos() {
-  const prods = STATE.produtos.filter(p => p.ativo);
-  setContent(`
-    <div class="card">
-      <div class="card-hdr">
-        <div class="sbar" style="max-width:300px">
-          <span>🔍</span><input type="text" placeholder="Buscar produtos..." oninput="filtrarProdutos(this.value)" id="prod-search">
+async function renderProdutos() {
+  loading();
+  try {
+    const [pd, cd] = await Promise.all([
+      api('GET', '/api/produtos?limit=200'),
+      api('GET', '/api/categorias')
+    ]);
+    const prods = pd.data || [];
+    const cats = Array.isArray(cd) ? cd : [];
+    STATE.produtos = prods;
+    STATE.categorias = cats;
+    window._prods = prods;
+    setContent(`
+      <div class="card">
+        <div class="card-hdr">
+          <div class="sbar" style="max-width:280px">
+            <span>🔍</span><input type="text" placeholder="Buscar produtos..." oninput="filtrarProdutos(this.value)" id="prod-search">
+          </div>
+          <div class="flex gap-2">
+            <select id="filtro-cat" onchange="filtrarProdutos()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;font-size:13px">
+              <option value="">Todas categorias</option>
+              ${cats.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="openProdutoModal()">+ Produto</button>
+          </div>
         </div>
-        <div class="flex gap-2">
-          <select id="filtro-cat" onchange="filtrarProdutos()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:14px">
-            <option value="">Todas categorias</option>
-            ${STATE.categorias.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}
-          </select>
-          <button class="btn btn-primary" onclick="openProdutoModal()">+ Novo Produto</button>
+        <div class="tbl-wrap" id="tabela-produtos">
+          ${renderTabelaProdutos(prods)}
         </div>
       </div>
-      <div class="tbl-wrap" id="tabela-produtos">
-        ${renderTabelaProdutos(prods)}
-      </div>
-    </div>
-  `);
+    `);
+  } catch(e) {
+    setContent(`<div class="empty"><div class="empty-ico">⚠️</div><div class="empty-ttl">Erro ao carregar</div><p class="empty-sub">${e.message}</p><button class="btn btn-primary" onclick="renderProdutos()">Tentar novamente</button></div>`);
+  }
 }
 
 function renderTabelaProdutos(prods) {
@@ -1562,7 +1575,7 @@ function renderTabelaProdutos(prods) {
 function filtrarProdutos(search) {
   const q = (search || document.getElementById('prod-search')?.value || '').toLowerCase();
   const cat = document.getElementById('filtro-cat')?.value;
-  let prods = STATE.produtos.filter(p => p.ativo);
+  let prods = (window._prods || STATE.produtos || []).filter(p => p.ativo !== false);
   if (q) prods = prods.filter(p => p.nome.toLowerCase().includes(q) || (p.marca||'').toLowerCase().includes(q));
   if (cat) prods = prods.filter(p => p.categoria_id === cat);
   document.getElementById('tabela-produtos').innerHTML = renderTabelaProdutos(prods);
@@ -1726,12 +1739,17 @@ function verVariacoes(prodId) {
 // ============================================================
 //  ESTOQUE
 // ============================================================
-function renderEstoque() {
-  const todasVar = STATE.produtos.flatMap(p => (p.variacoes||[]).map(v => ({ ...v, produto: p })));
-  const critico = todasVar.filter(v => v.estoque <= v.estoque_minimo);
-  const ok = todasVar.filter(v => v.estoque > v.estoque_minimo);
-  
-  setContent(`
+async function renderEstoque() {
+  loading();
+  try {
+    const pd = await api('GET', '/api/produtos?limit=200');
+    const prods = pd.data || [];
+    STATE.produtos = prods;
+    const todasVar = prods.flatMap(p => (p.variacoes||[]).map(v => ({ ...v, produto: p })));
+    const critico = todasVar.filter(v => v.estoque <= v.estoque_minimo);
+    const ok = todasVar.filter(v => v.estoque > v.estoque_minimo);
+    window._estVars = todasVar;
+    setContent(`
     <div class="grid-3 mb-4">
       <div class="kpi-card">
         <div class="kpi-ico" style="background:#d1fae5">✅</div>
@@ -1765,6 +1783,9 @@ function renderEstoque() {
       </div>
     </div>
   `);
+  } catch(e) {
+    setContent(`<div class="empty"><div class="empty-ico">⚠️</div><p class="empty-sub">${e.message}</p><button class="btn btn-primary" onclick="renderEstoque()">Tentar novamente</button></div>`);
+  }
 }
 
 function renderEstoqueTabela(items) {
@@ -1837,20 +1858,29 @@ async function confirmarAjuste(prodId, varId) {
 // ============================================================
 //  CLIENTES
 // ============================================================
-function renderClientes() {
-  setContent(`
-    <div class="card">
-      <div class="card-hdr">
-        <div class="sbar" style="max-width:300px">
-          <span>🔍</span><input type="text" placeholder="Buscar clientes..." oninput="filtrarClientes(this.value)">
+async function renderClientes() {
+  loading();
+  try {
+    const d = await api('GET', '/api/clientes?limit=200');
+    const clis = d.data || [];
+    STATE.clientes = clis;
+    window._clis = clis;
+    setContent(`
+      <div class="card">
+        <div class="card-hdr">
+          <div class="sbar" style="max-width:280px">
+            <span>🔍</span><input type="text" placeholder="Buscar clientes..." oninput="filtrarClientes(this.value)">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openClienteModal()">+ Cliente</button>
         </div>
-        <button class="btn btn-primary" onclick="openClienteModal()">+ Novo Cliente</button>
+        <div class="tbl-wrap" id="tabela-clientes">
+          ${renderTabelaClientes(clis)}
+        </div>
       </div>
-      <div class="tbl-wrap" id="tabela-clientes">
-        ${renderTabelaClientes(STATE.clientes.filter(c=>c.ativo))}
-      </div>
-    </div>
-  `);
+    `);
+  } catch(e) {
+    setContent(`<div class="empty"><div class="empty-ico">⚠️</div><p class="empty-sub">${e.message}</p><button class="btn btn-primary" onclick="renderClientes()">Tentar novamente</button></div>`);
+  }
 }
 
 function renderTabelaClientes(clientes) {
@@ -1882,7 +1912,7 @@ function renderTabelaClientes(clientes) {
 }
 
 function filtrarClientes(q) {
-  const clientes = STATE.clientes.filter(c => c.ativo && (c.nome.toLowerCase().includes(q.toLowerCase()) || (c.telefone||'').includes(q)));
+  const clientes = (window._clis || []).filter(c => c.ativo !== false && (c.nome.toLowerCase().includes(q.toLowerCase()) || (c.telefone||'').includes(q) || (c.cpf||'').includes(q)));
   document.getElementById('tabela-clientes').innerHTML = renderTabelaClientes(clientes);
 }
 
@@ -2057,46 +2087,52 @@ function verVenda(id) {
 // ============================================================
 //  FUNCIONÁRIOS
 // ============================================================
-function renderFuncionarios() {
-  const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
-  setContent(`
-    <div class="card">
-      <div class="card-hdr">
-        <span class="card-ttl">Equipe</span>
-        <button class="btn btn-primary" onclick="openFuncModal()">+ Novo Funcionário</button>
+async function renderFuncionarios() {
+  loading();
+  try {
+    const funcs = await api('GET', '/api/operacoes/funcionarios');
+    STATE.funcionarios = Array.isArray(funcs) ? funcs : [];
+    window._funcs = STATE.funcionarios;
+    const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+    setContent(`
+      <div class="card">
+        <div class="card-hdr">
+          <span class="card-ttl">Equipe</span>
+          <button class="btn btn-primary btn-sm" onclick="openFuncModal()">+ Funcionário</button>
+        </div>
+        ${STATE.funcionarios.length === 0 ?
+          '<div class="empty"><div class="empty-ico">👤</div><div class="empty-ttl">Nenhum funcionário</div><button class="btn btn-primary" onclick="openFuncModal()">+ Adicionar</button></div>' :
+          `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+            ${STATE.funcionarios.map(f => `
+              <div class="card" style="padding:16px">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="avatar" style="width:44px;height:44px;font-size:18px">${(f.nome||'?')[0]}</div>
+                  <div>
+                    <div class="font-bold">${f.nome}</div>
+                    <div class="text-xs text-muted">${f.cargo||'Vendedor'}</div>
+                  </div>
+                </div>
+                <div class="grid-2 mb-3" style="gap:8px">
+                  <div style="background:var(--bg);padding:10px;border-radius:8px">
+                    <div class="text-xs text-muted">Salário</div>
+                    <div class="font-bold text-sm">${fmtR(f.salario_base)}</div>
+                  </div>
+                  <div style="background:var(--bg);padding:10px;border-radius:8px">
+                    <div class="text-xs text-muted">Comissão</div>
+                    <div class="font-bold text-sm">${f.comissao_pct||0}%</div>
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  <button class="btn btn-outline btn-sm" style="flex:1" onclick="openFuncModal('${f.id}')">✏️ Editar</button>
+                  <button class="btn btn-ghost btn-sm" onclick="navigate('comissoes')">🏆</button>
+                </div>
+              </div>`).join('')}
+          </div>`}
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="func-grid">
-        ${STATE.funcionarios.filter(f=>f.ativo).map(f => `
-          <div class="card" style="padding:20px">
-            <div class="flex items-center gap-3 mb-4">
-              <div class="avatar" style="width:48px;height:48px;font-size:20px">${f.nome[0]}</div>
-              <div>
-                <div class="font-bold" style="font-size:16px">${f.nome}</div>
-                <div class="text-sm text-muted">${f.cargo}</div>
-              </div>
-            </div>
-            <div class="grid-2 gap-2 mb-3">
-              <div style="background:var(--bg);padding:10px;border-radius:8px">
-                <div class="text-xs text-muted">Salário Base</div>
-                <div class="font-bold">${fmtR(f.salario_base)}</div>
-              </div>
-              <div style="background:var(--bg);padding:10px;border-radius:8px">
-                <div class="text-xs text-muted">Comissão</div>
-                <div class="font-bold">${f.comissao_pct}%</div>
-              </div>
-            </div>
-            <div style="margin-bottom:12px">
-              <div class="flex justify-between text-xs text-muted mb-1"><span>Meta Mensal</span><span>${fmtR(f.meta_mensal)}</span></div>
-              <div class="progress"><div class="progress-bar" style="width:${Math.min(100, Math.random()*120)}%;background:${f.comissao_pct>2?'var(--success)':'var(--brand)'}"></div></div>
-            </div>
-            <div class="flex gap-2">
-              <button class="btn btn-outline btn-sm flex-1" onclick="openFuncModal('${f.id}')">✏️ Editar</button>
-              <button class="btn btn-ghost btn-sm" onclick="navigate('comissoes')">🏆</button>
-            </div>
-          </div>`).join('')}
-      </div>
-    </div>
-  `);
+    `);
+  } catch(e) {
+    setContent(`<div class="empty"><div class="empty-ico">⚠️</div><p class="empty-sub">${e.message}</p><button class="btn btn-primary" onclick="renderFuncionarios()">Tentar novamente</button></div>`);
+  }
 }
 
 function openFuncModal(id) {
@@ -2577,14 +2613,20 @@ async function mudarStatusPedido(id, status) {
 // ============================================================
 //  RELATÓRIOS
 // ============================================================
-function renderRelatorios() {
-  const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
-  const totalVendas = STATE.vendas.reduce((s,v)=>s+v.total,0);
-  const totalCusto = STATE.produtos.reduce((s,p)=>s+(p.preco_custo||0),0);
-  const margemMedia = STATE.produtos.reduce((s,p)=>s+(p.preco_custo>0?((p.preco_venda-p.preco_custo)/p.preco_custo)*100:0),0)/STATE.produtos.length;
+async function renderRelatorios() {
+  loading();
+  try {
+    const [dash, topClis] = await Promise.all([
+      api('GET', '/api/relatorios/dashboard'),
+      api('GET', '/api/relatorios/clientes-top').catch(()=>[])
+    ]);
+    const prods = STATE.produtos.length > 0 ? STATE.produtos : (await api('GET','/api/produtos?limit=200').then(d=>d.data||[]));
+    const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+    const totalVendas = dash.mes?.total || 0;
+    const margemMedia = prods.length > 0 ? prods.reduce((s,p)=>s+(p.preco_custo>0?((p.preco_venda-p.preco_custo)/p.preco_custo)*100:0),0)/prods.length : 0;
   
   const vendasPorDia = {};
-  STATE.vendas.forEach(v => {
+  (dash.ultimas_vendas || []).forEach(v => {
     const dia = new Date(v.criado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
     vendasPorDia[dia] = (vendasPorDia[dia]||0) + v.total;
   });
@@ -2614,7 +2656,7 @@ function renderRelatorios() {
 
       <div class="card">
         <div class="card-hdr"><span class="card-ttl">👥 Top Clientes</span></div>
-        ${STATE.clientes.sort((a,b)=>b.total_compras-a.total_compras).slice(0,5).map((c,i) => `
+        ${(Array.isArray(topClis)?topClis:[]).slice(0,5).map((c,i) => `
           <div class="flex items-center gap-3 mb-3">
             <span style="font-weight:900;color:var(--text-muted);width:20px">#${i+1}</span>
             <div style="flex:1">
@@ -2632,7 +2674,7 @@ function renderRelatorios() {
         <table>
           <thead><tr><th>Produto</th><th>Categoria</th><th>Preço Venda</th><th>Custo</th><th>Margem</th><th>Estoque Total</th><th>Valor em Estoque</th></tr></thead>
           <tbody>
-            ${STATE.produtos.filter(p=>p.ativo).map(p => {
+            ${prods.filter(p=>p.ativo!==false).map(p => {
               const estTotal = (p.variacoes||[]).reduce((s,v)=>s+v.estoque,0);
               const margem = p.preco_custo > 0 ? ((p.preco_venda-p.preco_custo)/p.preco_custo*100).toFixed(0) : '—';
               return `<tr>
@@ -2650,6 +2692,9 @@ function renderRelatorios() {
       </div>
     </div>
   `);
+  } catch(e) {
+    setContent(`<div class="empty"><div class="empty-ico">⚠️</div><p class="empty-sub">${e.message}</p><button class="btn btn-primary" onclick="renderRelatorios()">Tentar novamente</button></div>`);
+  }
 }
 
 // ============================================================
