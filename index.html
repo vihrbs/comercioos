@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ComercioOS — Sistema de Gestão para Lojas de Moda</title>
+<meta name="description" content="PDV, estoque, clientes e financeiro em um só lugar. Feito para quem vende roupa, calçado e acessório de verdade.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16132B; --ink2:#3D3768;
+  --purple:#5B3DF5; --purple-d:#4527D6; --purple-l:#EFEAFF;
+  --amber:#F5A524; --amber-d:#D6890A;
+  --cream:#FAF8FF; --line:#E8E4FB;
+  --ok:#1B9E6B;
+  --ff-d:'Sora',sans-serif; --ff-b:'Inter',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--ff-b);background:var(--cream);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+h1,h2,h3{font-family:var(--ff-d);font-weight:800;letter-spacing:-0.02em;line-height:1.08}
+
+/* ── NAV ── */
+.nav{position:sticky;top:0;z-index:50;background:rgba(250,248,255,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;max-width:1180px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--ff-d);font-weight:800;font-size:19px}
+.brand-mark{width:34px;height:34px;background:linear-gradient(135deg,var(--purple),var(--purple-d));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.nav-links{display:flex;gap:28px;font-weight:600;font-size:14px}
+.nav-cta{display:flex;gap:10px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:10px;font-weight:700;font-size:14px;border:none;cursor:pointer;transition:transform .15s, box-shadow .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn-amber{background:var(--amber);color:#1A1300;box-shadow:0 4px 14px rgba(245,165,36,.35)}
+.btn-amber:hover{box-shadow:0 6px 20px rgba(245,165,36,.45)}
+.btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn-ghost:hover{border-color:var(--purple)}
+.btn-lg{padding:15px 30px;font-size:16px}
+
+/* ── HERO ── */
+.hero{padding:64px 0 0;overflow:hidden;position:relative}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;padding:40px 0 70px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--purple-l);color:var(--purple-d);padding:7px 14px;border-radius:30px;font-size:12.5px;font-weight:700;margin-bottom:22px}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+h1.hero-h{font-size:clamp(36px,5vw,54px);margin-bottom:20px}
+h1.hero-h .hl{color:var(--purple)}
+.hero-sub{font-size:18px;color:var(--ink2);max-width:480px;margin-bottom:30px}
+.hero-ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.hero-trust{font-size:13px;color:var(--ink2);display:flex;align-items:center;gap:6px}
+
+/* ── PDV MOCKUP ── */
+.mockup{position:relative}
+.mockup-card{background:#fff;border-radius:18px;box-shadow:0 30px 70px -20px rgba(91,61,245,.35), 0 0 0 1px var(--line);overflow:hidden;transform:rotate(1.2deg)}
+.mockup-bar{background:var(--ink);padding:11px 16px;display:flex;align-items:center;gap:7px}
+.mockup-dot{width:9px;height:9px;border-radius:50%;background:#5a5470}
+.mockup-screen{padding:18px;background:#fff}
+.mockup-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F1EFFA;font-size:13.5px}
+.mockup-row:last-child{border-bottom:none}
+.mockup-prod{display:flex;align-items:center;gap:10px}
+.mockup-ico{width:32px;height:32px;background:var(--purple-l);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.mockup-total{background:var(--ink);color:#fff;border-radius:12px;padding:14px 16px;margin-top:14px;display:flex;justify-content:space-between;align-items:center}
+.mockup-total .v{font-family:var(--ff-d);font-size:22px;font-weight:800;color:var(--amber)}
+.float-badge{position:absolute;background:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 12px 30px -8px rgba(0,0,0,.18);display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;animation:float 3.5s ease-in-out infinite}
+.float-1{top:-14px;right:-18px;animation-delay:0s}
+.float-2{bottom:30px;left:-30px;animation-delay:1.2s}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+/* ── TICKER ── */
+.ticker-wrap{background:var(--ink);padding:13px 0;overflow:hidden;white-space:nowrap}
+.ticker{display:inline-flex;gap:40px;animation:scroll 28s linear infinite;color:#D8D2FF;font-size:13.5px;font-weight:600}
+.ticker span{display:inline-flex;align-items:center;gap:8px}
+.ticker .sep{color:var(--amber)}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ── DOR/SOLUÇÃO ── */
+.section{padding:84px 0}
+.section-head{text-align:center;max-width:600px;margin:0 auto 56px}
+.section-tag{color:var(--purple-d);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.section-head h2{font-size:clamp(28px,3.6vw,38px)}
+.problems{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.pcard{background:#fff;border-radius:16px;padding:28px;border:1px solid var(--line);position:relative}
+.pcard-x{position:absolute;top:24px;right:24px;width:28px;height:28px;border-radius:50%;background:#FEF0EF;color:#D14343;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+.pcard h3{font-size:17px;margin-bottom:8px;padding-right:36px}
+.pcard p{color:var(--ink2);font-size:14.5px}
+.arrow-down{text-align:center;font-size:26px;color:var(--purple);margin:30px 0}
+
+/* ── FEATURES ── */
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.fcard{background:#fff;border-radius:16px;padding:26px;border:1px solid var(--line);transition:border-color .2s, transform .2s}
+.fcard:hover{border-color:var(--purple);transform:translateY(-3px)}
+.fcard-ico{width:46px;height:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:14px}
+.fcard h3{font-size:16.5px;margin-bottom:7px}
+.fcard p{color:var(--ink2);font-size:14px}
+
+/* ── DEMO INTERATIVA ── */
+.demo-section{background:var(--ink);padding:80px 0;color:#fff}
+.demo-section .section-head h2{color:#fff}
+.demo-section .section-tag{color:var(--amber)}
+.demo-tabs{display:flex;justify-content:center;gap:8px;margin-bottom:36px;flex-wrap:wrap}
+.dtab{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#C9C3F0;padding:9px 18px;border-radius:30px;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s}
+.dtab.on{background:var(--amber);color:#1A1300;border-color:var(--amber)}
+.demo-frame{background:#fff;border-radius:18px;padding:24px;max-width:560px;margin:0 auto;color:var(--ink);box-shadow:0 40px 80px -20px rgba(0,0,0,.5)}
+
+/* ── PRICING ── */
+.price-card{max-width:420px;margin:0 auto;background:#fff;border-radius:22px;padding:40px;border:2px solid var(--purple);position:relative;box-shadow:0 30px 60px -20px rgba(91,61,245,.25)}
+.price-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--amber);color:#1A1300;font-size:12px;font-weight:800;padding:6px 16px;border-radius:20px}
+.price-val{font-family:var(--ff-d);font-size:54px;font-weight:800;text-align:center;margin:20px 0 4px}
+.price-val .cents{font-size:28px}
+.price-period{text-align:center;color:var(--ink2);font-size:14px;margin-bottom:26px}
+.price-list{margin:0 0 28px;padding:0;list-style:none}
+.price-list li{display:flex;align-items:flex-start;gap:10px;padding:9px 0;font-size:14.5px;border-bottom:1px solid #F4F2FC}
+.price-list li:last-child{border-bottom:none}
+.check{color:var(--ok);font-weight:800;flex-shrink:0}
+
+/* ── FAQ ── */
+.faq{max-width:680px;margin:0 auto}
+.faq-item{border-bottom:1px solid var(--line);padding:20px 0}
+.faq-q{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:700;font-size:15.5px}
+.faq-a{color:var(--ink2);font-size:14.5px;margin-top:10px;max-height:0;overflow:hidden;transition:max-height .25s}
+.faq-item.on .faq-a{max-height:200px}
+.faq-plus{transition:transform .2s;font-size:20px;color:var(--purple)}
+.faq-item.on .faq-plus{transform:rotate(45deg)}
+
+/* ── CTA FINAL ── */
+.cta-final{background:linear-gradient(135deg,var(--purple) 0%,#3D2BA8 100%);border-radius:28px;padding:64px 40px;text-align:center;color:#fff;margin:0 24px}
+.cta-final h2{color:#fff;font-size:clamp(26px,4vw,38px);margin-bottom:14px}
+.cta-final p{color:#D8D2FF;font-size:16px;margin-bottom:30px;max-width:480px;margin-left:auto;margin-right:auto}
+
+/* ── FOOTER ── */
+.footer{padding:48px 0 28px;text-align:center;color:var(--ink2);font-size:13px;border-top:1px solid var(--line);margin-top:40px}
+
+@media(max-width:860px){
+  .hero-grid{grid-template-columns:1fr;gap:40px}
+  .nav-links{display:none}
+  .problems,.feat-grid{grid-template-columns:1fr}
+  .mockup-card{transform:none}
+  .float-badge{display:none}
+  .cta-final{margin:0 12px;padding:44px 24px}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-in">
+    <div class="brand"><div class="brand-mark">🛍️</div>ComercioOS</div>
+    <div class="nav-links">
+      <a href="#problemas">Problemas</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#preco">Preço</a>
+      <a href="#faq">Dúvidas</a>
+    </div>
+    <div class="nav-cta">
+      <a href="https://vihrbs.github.io/comercioos/painel.html" class="btn btn-ghost">Entrar</a>
+      <a href="https://vihrbs.github.io/comercioos/painel.html" class="btn btn-amber">Testar grátis</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> Feito para loja de roupa, calçado e acessório</div>
+        <h1 class="hero-h">Pare de anotar venda<br>no <span class="hl">caderninho</span>.</h1>
+        <p class="hero-sub">PDV, estoque por tamanho e cor, clientes e financeiro — tudo no mesmo lugar, do celular ou do computador da loja.</p>
+        <div class="hero-ctas">
+          <a href="https://vihrbs.github.io/comercioos/painel.html" class="btn btn-amber btn-lg">Testar 14 dias grátis →</a>
+          <a href="#recursos" class="btn btn-ghost btn-lg">Ver como funciona</a>
+        </div>
+        <div class="hero-trust">✓ Sem cartão de crédito · ✓ Cancele quando quiser</div>
+      </div>
+      <div class="mockup">
+        <div class="float-badge float-1">✅ Venda finalizada</div>
+        <div class="float-badge float-2">⚠️ Estoque baixo: Vestido P</div>
+        <div class="mockup-card">
+          <div class="mockup-bar"><div class="mockup-dot"></div><div class="mockup-dot"></div><div class="mockup-dot"></div></div>
+          <div class="mockup-screen">
+            <div class="mockup-row"><div class="mockup-prod"><div class="mockup-ico">👗</div>Vestido Floral — M</div><b>R$129,90</b></div>
+            <div class="mockup-row"><div class="mockup-prod"><div class="mockup-ico">👖</div>Calça Wide Leg — 40</div><b>R$179,90</b></div>
+            <div class="mockup-row"><div class="mockup-prod"><div class="mockup-ico">👟</div>Tênis Branco — 37</div><b>R$249,90</b></div>
+            <div class="mockup-total"><span>Total da venda</span><span class="v">R$559,70</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="ticker-wrap">
+  <div class="ticker">
+    <span>👗 Vestido Floral vendido em São Paulo <span class="sep">·</span></span>
+    <span>👟 Tênis Branco vendido em Belo Horizonte <span class="sep">·</span></span>
+    <span>👜 Bolsa de Couro vendida no Rio de Janeiro <span class="sep">·</span></span>
+    <span>👖 Calça Jeans vendida em Curitiba <span class="sep">·</span></span>
+    <span>🧥 Casaco vendido em Porto Alegre <span class="sep">·</span></span>
+    <span>👗 Vestido Floral vendido em São Paulo <span class="sep">·</span></span>
+    <span>👟 Tênis Branco vendido em Belo Horizonte <span class="sep">·</span></span>
+    <span>👜 Bolsa de Couro vendida no Rio de Janeiro <span class="sep">·</span></span>
+    <span>👖 Calça Jeans vendida em Curitiba <span class="sep">·</span></span>
+    <span>🧥 Casaco vendido em Porto Alegre <span class="sep">·</span></span>
+  </div>
+</div>
+
+<section class="section" id="problemas">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">O dia a dia real da loja</div>
+      <h2>Você reconhece essas cenas?</h2>
+    </div>
+    <div class="problems">
+      <div class="pcard"><div class="pcard-x">✕</div><h3>"Tinha esse tamanho?"</h3><p>Cliente pede um número e você precisa ir até o estoque conferir — perdendo a venda se demorar demais.</p></div>
+      <div class="pcard"><div class="pcard-x">✕</div><h3>Caderno de fiado sujo</h3><p>Anotações de crediário em papel, sem saber quem está em dia e quem está devendo há 3 meses.</p></div>
+      <div class="pcard"><div class="pcard-x">✕</div><h3>Comissão na ponta do lápis</h3><p>Fim do mês é uma confusão pra calcular quanto cada vendedora vendeu e quanto ela tem a receber.</p></div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="problems">
+      <div class="pcard" style="border-color:var(--purple)"><div class="pcard-x" style="background:#E7FBF1;color:var(--ok)">✓</div><h3>Estoque por tamanho e cor</h3><p>Vê na hora quantas peças de cada variação tem disponível, direto na tela do caixa.</p></div>
+      <div class="pcard" style="border-color:var(--purple)"><div class="pcard-x" style="background:#E7FBF1;color:var(--ok)">✓</div><h3>Crediário organizado</h3><p>Cada cliente com seu histórico, saldo devedor e data de vencimento, tudo no sistema.</p></div>
+      <div class="pcard" style="border-color:var(--purple)"><div class="pcard-x" style="background:#E7FBF1;color:var(--ok)">✓</div><h3>Comissão automática</h3><p>O sistema calcula sozinho quanto cada funcionária vendeu e qual a comissão do mês.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="recursos" style="background:#fff">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">Tudo incluso</div>
+      <h2>Um sistema só, pra loja toda</h2>
+    </div>
+    <div class="feat-grid">
+      <div class="fcard"><div class="fcard-ico" style="background:var(--purple-l)">🛒</div><h3>PDV rápido</h3><p>Busca produto, escolhe tamanho e cor, escaneia código de barras e finaliza — em segundos.</p></div>
+      <div class="fcard"><div class="fcard-ico" style="background:#FEF3E2">📦</div><h3>Estoque inteligente</h3><p>Alerta automático quando uma variação está acabando, antes que vire problema.</p></div>
+      <div class="fcard"><div class="fcard-ico" style="background:#FDE9F3">👥</div><h3>Clientes e fidelidade</h3><p>Histórico de compras, pontos de fidelidade e contato direto pra trazer o cliente de volta.</p></div>
+      <div class="fcard"><div class="fcard-ico" style="background:#E7FBF1">💰</div><h3>Caixa e financeiro</h3><p>Abertura e fechamento de caixa, sangrias, entradas e saídas, tudo registrado.</p></div>
+      <div class="fcard"><div class="fcard-ico" style="background:#E9EBFF">🏆</div><h3>Comissão da equipe</h3><p>Ranking de vendedoras, meta mensal e cálculo automático de comissão.</p></div>
+      <div class="fcard"><div class="fcard-ico" style="background:#FEF0EF">📊</div><h3>Relatórios completos</h3><p>Filtra por período e exporta em Excel ou PDF pra mandar pro contador.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="demo-section">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">Veja na prática</div>
+      <h2>Como funciona o dia a dia</h2>
+    </div>
+    <div class="demo-tabs">
+      <button class="dtab on" data-tab="pdv">🛒 Vender</button>
+      <button class="dtab" data-tab="estoque">📦 Estoque</button>
+      <button class="dtab" data-tab="financeiro">💰 Caixa</button>
+    </div>
+    <div class="demo-frame" id="demo-frame">
+      <div class="mockup-row"><div class="mockup-prod"><div class="mockup-ico">👗</div>Vestido Floral — M</div><b>R$129,90</b></div>
+      <div class="mockup-row"><div class="mockup-prod"><div class="mockup-ico">👟</div>Tênis Branco — 37</div><b>R$249,90</b></div>
+      <div class="mockup-total"><span>Total</span><span class="v">R$379,80</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="preco">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">Investimento</div>
+      <h2>Um preço só, sem pegadinha</h2>
+    </div>
+    <div class="price-card">
+      <div class="price-badge">14 dias grátis</div>
+      <div class="price-val">R$59<span class="cents">,99</span></div>
+      <div class="price-period">por mês, por loja</div>
+      <ul class="price-list">
+        <li><span class="check">✓</span> PDV e estoque ilimitados</li>
+        <li><span class="check">✓</span> Clientes ilimitados</li>
+        <li><span class="check">✓</span> Funcionários e comissões</li>
+        <li><span class="check">✓</span> Financeiro e crediário</li>
+        <li><span class="check">✓</span> Relatórios em Excel e PDF</li>
+        <li><span class="check">✓</span> Acesso pelo celular</li>
+        <li><span class="check">✓</span> PIX, boleto ou cartão</li>
+      </ul>
+      <a href="https://vihrbs.github.io/comercioos/painel.html" class="btn btn-amber btn-lg" style="width:100%;justify-content:center">Começar agora →</a>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="faq" style="background:#fff">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-tag">Dúvidas</div>
+      <h2>Antes de começar</h2>
+    </div>
+    <div class="faq">
+      <div class="faq-item"><div class="faq-q">Preciso instalar algo? <span class="faq-plus">+</span></div><div class="faq-a">Não. Funciona direto no navegador, do celular ou computador, sem instalar nada.</div></div>
+      <div class="faq-item"><div class="faq-q">Funciona com leitor de código de barras? <span class="faq-plus">+</span></div><div class="faq-a">Sim. Qualquer leitor USB comum funciona — basta escanear que o produto já entra no carrinho.</div></div>
+      <div class="faq-item"><div class="faq-q">Posso usar com mais de uma vendedora? <span class="faq-plus">+</span></div><div class="faq-a">Sim. Cada funcionária tem seu próprio acesso e o sistema calcula a comissão de cada uma.</div></div>
+      <div class="faq-item"><div class="faq-q">E se eu quiser cancelar? <span class="faq-plus">+</span></div><div class="faq-a">Pode cancelar quando quiser, sem multa e sem burocracia.</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="cta-final">
+    <h2>Sua loja organizada começa hoje</h2>
+    <p>14 dias grátis pra testar tudo, sem precisar de cartão de crédito.</p>
+    <a href="https://vihrbs.github.io/comercioos/painel.html" class="btn btn-amber btn-lg">Criar minha conta grátis →</a>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="wrap">© 2026 ComercioOS — Sistema de gestão para lojas de moda</div>
+</footer>
+
+<script>
+document.querySelectorAll('.faq-item').forEach(item=>{
+  item.querySelector('.faq-q').addEventListener('click',()=>{
+    const isOpen=item.classList.contains('on');
+    document.querySelectorAll('.faq-item').forEach(i=>i.classList.remove('on'));
+    if(!isOpen)item.classList.add('on');
+  });
+});
+
+const demos={
+  pdv:`<div class="mockup-row"><div class="mockup-prod"><div class="mockup-ico">👗</div>Vestido Floral — M</div><b>R$129,90</b></div>
+  <div class="mockup-row"><div class="mockup-prod"><div class="mockup-ico">👟</div>Tênis Branco — 37</div><b>R$249,90</b></div>
+  <div class="mockup-total"><span>Total</span><span class="v">R$379,80</span></div>`,
+  estoque:`<div class="mockup-row"><div class="mockup-prod"><div class="mockup-ico">👗</div>Vestido Floral — P</div><b style="color:#D14343">3 un. — Crítico</b></div>
+  <div class="mockup-row"><div class="mockup-prod"><div class="mockup-ico">👖</div>Calça Wide Leg — 38</div><b style="color:#1B9E6B">22 un. — OK</b></div>
+  <div class="mockup-row"><div class="mockup-prod"><div class="mockup-ico">👟</div>Tênis Branco — 39</div><b style="color:#D6890A">5 un. — Atenção</b></div>`,
+  financeiro:`<div class="mockup-row"><span>Saldo inicial</span><b>R$200,00</b></div>
+  <div class="mockup-row"><span>Vendas do dia</span><b style="color:#1B9E6B">+R$1.240,50</b></div>
+  <div class="mockup-row"><span>Sangria</span><b style="color:#D14343">-R$150,00</b></div>
+  <div class="mockup-total"><span>Saldo em caixa</span><span class="v">R$1.290,50</span></div>`
+};
+document.querySelectorAll('.dtab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('on'));
+    tab.classList.add('on');
+    document.getElementById('demo-frame').innerHTML=demos[tab.dataset.tab];
+  });
+});
+</script>
+</body>
+</html>
