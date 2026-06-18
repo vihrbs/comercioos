@@ -8,7 +8,7 @@ const { authMiddleware } = require('../middleware/auth');
 // POST /api/auth/register - Registrar nova loja + admin
 router.post('/register', async (req, res) => {
   try {
-    const { nome_loja, nome, email, senha, tipo } = req.body;
+    const { nome_loja, nome, email, senha, telefone, tipo } = req.body;
     if (!nome_loja || !nome || !email || !senha) {
       return res.status(400).json({ error: 'Campos obrigatórios faltando' });
     }
@@ -26,6 +26,7 @@ router.post('/register', async (req, res) => {
       .from('lojas').insert({
         nome: nome_loja,
         tipo: tipo || 'moda',
+        telefone: telefone || null,
         status: 'trial',
         trial_expires_at: trialExpira.toISOString()
       }).select().single();
@@ -56,7 +57,7 @@ router.post('/register', async (req, res) => {
     const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
     if (TELEGRAM_TOKEN && TELEGRAM_CHAT_ID) {
       try {
-        const msg = `🎉 Novo cadastro no ComercioOS!\n\n🏪 Loja: ${nome_loja}\n👤 Responsável: ${nome}\n📧 Email: ${email}\n📅 ${new Date().toLocaleString('pt-BR')}`;
+        const msg = `🎉 Novo cadastro no ComercioOS!\n\n🏪 Loja: ${nome_loja}\n👤 Responsável: ${nome}\n📧 Email: ${email}\n📱 Telefone: ${telefone || 'não informado'}\n📅 ${new Date().toLocaleString('pt-BR')}`;
         await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
