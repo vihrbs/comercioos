@@ -662,7 +662,7 @@ async function pgPDV(){
     set(`
 <div class="pdvw">
   <div class="pdvl">
-    <div class="pdvsh"><div class="sb_"><span>🔍</span><input type="text" id="pdvq" placeholder="Buscar produto..." oninput="pdvFilt()" autocomplete="off"></div></div>
+    <div class="pdvsh"><div class="sb_"><span>🔍</span><input type="text" id="pdvq" placeholder="🔍 Buscar ou escanear código de barras..." oninput="pdvFilt()" onkeydown="pdvBarcodeListener(event)" autocomplete="off"></div></div>
     <div class="pdvcat" id="pdvcat">
       <button class="pill on" onclick="pdvCat(null,this)">Todos</button>
       ${S.cats.map(c=>`<button class="pill" onclick="pdvCat('${c.id}',this)">${c.nome}</button>`).join('')}
@@ -705,15 +705,35 @@ function pdvCat(id,btn){
   btn.classList.add('on');pdvFilt();
 }
 function pdvFilt(){
-  const q=(document.getElementById('pdvq')?.value||'').toLowerCase();
+  const qRaw=(document.getElementById('pdvq')?.value||'');
+  const q=qRaw.toLowerCase();
   const icon={feminino:'👗',masculino:'👔',infantil:'👶',unissex:'🧢'};
   let ps=S.prods.filter(p=>p.ativo!==false);
   if(S.pdvCat)ps=ps.filter(p=>p.categoria_id===S.pdvCat);
-  if(q)ps=ps.filter(p=>p.nome.toLowerCase().includes(q));
+  if(q)ps=ps.filter(p=>p.nome.toLowerCase().includes(q)||(p.variacoes||[]).some(v=>(v.codigo_barras||'').toLowerCase().includes(q)));
   const g=document.getElementById('pdvg');if(!g)return;
   g.innerHTML=ps.length===0?'<div class="empty" style="grid-column:1/-1"><div class="ei">😔</div><div class="est">Nenhum produto</div></div>':
   ps.map(p=>{const st=(p.variacoes||[]).reduce((s,v)=>s+(v.estoque||0),0);
   return `<div class="pc" onclick="addCart('${p.id}')"><div class="pci">${p.icone||icon[p.genero]||'🏷️'}</div><div class="pcn">${p.nome}</div><div class="pcp">${R(p.preco_venda)}</div><div class="pcs">${st} un.</div></div>`;}).join('');
+}
+
+// Leitor de código de barras: USB funciona como teclado, digita rápido + Enter
+function pdvBarcodeListener(e){
+  if(e.key==='Enter'){
+    const val=(document.getElementById('pdvq')?.value||'').trim();
+    if(!val)return;
+    // Busca produto cuja variação tenha esse código de barras EXATO
+    const prod=S.prods.find(p=>(p.variacoes||[]).some(v=>v.codigo_barras===val));
+    if(prod){
+      const varMatch=(prod.variacoes||[]).find(v=>v.codigo_barras===val);
+      addItem(prod,varMatch);
+      document.getElementById('pdvq').value='';
+      pdvFilt();
+      toast(`${prod.nome} adicionado via código de barras ✓`);
+    } else {
+      toast('Código não encontrado: '+val,'wn');
+    }
+  }
 }
 function addCart(pid){
   const p=S.prods.find(x=>x.id===pid);if(!p)return;
@@ -758,18 +778,92 @@ async function finVenda(){
   const btn=document.querySelector('.cact .btn');if(btn){btn.innerHTML='<div class="sp"></div>';btn.disabled=true;}
   try{
     const sub=S.cart.reduce((s,i)=>s+i.preco*i.qty,0);const desc=S.cartDesc||0;const tot=Math.max(0,sub-desc);
-    const cli=S.cartCli&&S.cartCli.length>10?S.cartCli:null;
+    const cliId=S.cartCli&&S.cartCli.length>10?S.cartCli:null;
     const fn=S.cartFn&&S.cartFn.length>10?S.cartFn:null;
     const parc=parseInt(document.getElementById('parc')?.value||1);
+    const itensSnapshot=S.cart.map(i=>({...i})); // guarda os itens antes de limpar o carrinho
     const v=await req('POST','/api/vendas',{
-      itens:S.cart.map(i=>({produto_id:i.pid,variacao_id:i.vid||null,nome_produto:i.nome,tamanho:i.tam||null,cor:i.cor||null,quantidade:i.qty,preco_unitario:i.preco,desconto:0,subtotal:i.preco*i.qty})),
-      cliente_id:cli,funcionario_id:fn,forma_pagamento:S.cartPag,parcelas:parc,desconto_valor:desc,subtotal:sub,total:tot
+      itens:itensSnapshot.map(i=>({produto_id:i.pid,variacao_id:i.vid||null,nome_produto:i.nome,tamanho:i.tam||null,cor:i.cor||null,quantidade:i.qty,preco_unitario:i.preco,desconto:0,subtotal:i.preco*i.qty})),
+      cliente_id:cliId,funcionario_id:fn,forma_pagamento:S.cartPag,parcelas:parc,desconto_valor:desc,subtotal:sub,total:tot
     });
-    openModal('✅ Venda Finalizada',`<div style="text-align:center;padding:12px 0"><div style="font-size:52px">✅</div><div style="font-size:22px;font-weight:900;color:var(--ok)">${v.numero}</div><div style="font-size:28px;font-weight:900;color:var(--brand);margin-top:12px">${R(tot)}</div></div>`,
+    const cliObj=cliId?(S.clis||[]).find(c=>c.id===cliId):null;
+    window._ultimaVenda={numero:v.numero,itens:itensSnapshot,sub,desc,tot,pag:S.cartPag,cliente:cliObj,data:new Date()};
+    openModal('✅ Venda Finalizada',`
+    <div style="text-align:center;padding:12px 0">
+      <div style="font-size:52px">✅</div>
+      <div style="font-size:22px;font-weight:900;color:var(--ok)">${v.numero}</div>
+      <div style="font-size:28px;font-weight:900;color:var(--brand);margin-top:12px">${R(tot)}</div>
+    </div>
+    <div class="fl g8 mt4" style="flex-wrap:wrap">
+      <button class="btn bo" style="flex:1" onclick="imprimirRecibo()">🖨️ Imprimir</button>
+      <button class="btn bo" style="flex:1" onclick="enviarWhatsApp()">📱 WhatsApp</button>
+    </div>`,
     `<button class="btn bp blk" onclick="closeModal()">Fechar</button>`,'msm');
     clearCart();toast(`Venda ${v.numero} finalizada! 🎉`);
   }catch(e){toast('Erro: '+e.message,'er');}
   finally{if(btn){btn.innerHTML='✅ Finalizar Venda';btn.disabled=false;}}
+}
+
+// ── IMPRESSÃO DE RECIBO ──
+function imprimirRecibo(){
+  const vd=window._ultimaVenda;if(!vd)return toast('Nenhuma venda recente','er');
+  const lj=S.loja||{};
+  const linhas=vd.itens.map(i=>`
+    <tr>
+      <td style="padding:3px 0">${i.nome}${i.tam?' ('+i.tam+(i.cor?' '+i.cor:'')+')':''}</td>
+      <td style="padding:3px 0;text-align:center">${i.qty}x</td>
+      <td style="padding:3px 0;text-align:right">${R(i.preco*i.qty)}</td>
+    </tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Recibo ${vd.numero}</title>
+  <style>
+    body{font-family:'Courier New',monospace;width:300px;margin:0 auto;padding:16px;font-size:13px;color:#000}
+    h2{text-align:center;font-size:16px;margin:0 0 4px}
+    .center{text-align:center}
+    .line{border-top:1px dashed #000;margin:8px 0}
+    table{width:100%;border-collapse:collapse}
+    .tot{font-size:15px;font-weight:bold;text-align:right}
+    @media print{body{width:auto}}
+  </style></head>
+  <body>
+    <h2>${lj.nome||'ComercioOS'}</h2>
+    <p class="center">${vd.data.toLocaleString('pt-BR')}</p>
+    <p class="center"><strong>Venda ${vd.numero}</strong></p>
+    ${vd.cliente?`<p class="center">Cliente: ${vd.cliente.nome}</p>`:''}
+    <div class="line"></div>
+    <table>${linhas}</table>
+    <div class="line"></div>
+    <table>
+      <tr><td>Subtotal</td><td class="tot">${R(vd.sub)}</td></tr>
+      ${vd.desc>0?`<tr><td>Desconto</td><td class="tot">-${R(vd.desc)}</td></tr>`:''}
+      <tr><td style="font-size:15px"><strong>TOTAL</strong></td><td class="tot">${R(vd.tot)}</td></tr>
+    </table>
+    <div class="line"></div>
+    <p class="center">Pagamento: ${vd.pag.toUpperCase()}</p>
+    <p class="center" style="margin-top:16px">Obrigado pela compra! 💜</p>
+  </body></html>`;
+  const w=window.open('','_blank','width=350,height=600');
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),300);
+}
+
+// ── ENVIO POR WHATSAPP ──
+function enviarWhatsApp(){
+  const vd=window._ultimaVenda;if(!vd)return toast('Nenhuma venda recente','er');
+  const lj=S.loja||{};
+  let msg=`*${lj.nome||'ComercioOS'}*\n`;
+  msg+=`Venda ${vd.numero}\n`;
+  msg+=`${vd.data.toLocaleString('pt-BR')}\n\n`;
+  vd.itens.forEach(i=>{msg+=`${i.qty}x ${i.nome}${i.tam?' ('+i.tam+')':''} - ${R(i.preco*i.qty)}\n`;});
+  msg+=`\n*Total: ${R(vd.tot)}*\n`;
+  msg+=`Pagamento: ${vd.pag}\n\n`;
+  msg+=`Obrigado pela compra! 💜`;
+
+  const tel=vd.cliente?.telefone?vd.cliente.telefone.replace(/\D/g,''):'';
+  const numComDDI=tel?(tel.length<=11?'55'+tel:tel):'';
+  const url=numComDDI
+    ? `https://wa.me/${numComDDI}?text=${encodeURIComponent(msg)}`
+    : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(url,'_blank');
 }
 
 // ══════════════════════════════════════════
@@ -837,18 +931,19 @@ function modalProd(id){
   `<button class="btn bo" onclick="closeModal()">Cancelar</button><button class="btn bp" onclick="saveProd('${id||''}')">💾 Salvar</button>`,'mlg');
 }
 function selIco(ic){document.getElementById('pico').value=ic;const p=document.getElementById('ico-prev');if(p)p.textContent=ic;}
-function varRow(v,i){return`<div class="fl g8 mb3 fic" id="vr${i}" style="background:var(--bg);padding:8px;border-radius:8px">
-  <input class="fi" placeholder="Tam." value="${v.tamanho||''}" id="vt${i}" style="width:75px;flex-shrink:0">
-  <input class="fi" placeholder="Cor" value="${v.cor||''}" id="vc${i}" style="flex:1">
-  <input class="fi" type="number" placeholder="Estq." value="${v.estoque||0}" id="ve${i}" style="width:65px;flex-shrink:0">
-  <input class="fi" type="number" placeholder="Min." value="${v.estoque_minimo||5}" id="vm${i}" style="width:55px;flex-shrink:0">
+function varRow(v,i){return`<div class="fl g8 mb3 fic" id="vr${i}" style="background:var(--bg);padding:8px;border-radius:8px;flex-wrap:wrap">
+  <input class="fi" placeholder="Tam." value="${v.tamanho||''}" id="vt${i}" style="width:65px;flex-shrink:0">
+  <input class="fi" placeholder="Cor" value="${v.cor||''}" id="vc${i}" style="flex:1;min-width:80px">
+  <input class="fi" type="number" placeholder="Estq." value="${v.estoque||0}" id="ve${i}" style="width:60px;flex-shrink:0">
+  <input class="fi" type="number" placeholder="Min." value="${v.estoque_minimo||5}" id="vm${i}" style="width:50px;flex-shrink:0">
+  <input class="fi" placeholder="📷 Cód. barras" value="${v.codigo_barras||''}" id="vb${i}" style="width:120px;flex-shrink:0">
   <button onclick="document.getElementById('vr${i}').remove()" style="background:none;border:none;cursor:pointer;color:var(--err);font-size:18px;flex-shrink:0">×</button>
 </div>`;}
 function addVar(){const i=window._varCount++;document.getElementById('vars').insertAdjacentHTML('beforeend',varRow({},i));}
 async function saveProd(id){
   const nm=document.getElementById('pnm').value.trim();const pv=parseFloat(document.getElementById('ppv').value);
   if(!nm||!pv)return toast('Nome e preço obrigatórios','er');
-  const vars=[];document.querySelectorAll('[id^="vr"]').forEach(r=>{const i=r.id.slice(2);vars.push({tamanho:document.getElementById('vt'+i)?.value||null,cor:document.getElementById('vc'+i)?.value||null,estoque:parseInt(document.getElementById('ve'+i)?.value||0),estoque_minimo:parseInt(document.getElementById('vm'+i)?.value||5)});});
+  const vars=[];document.querySelectorAll('[id^="vr"]').forEach(r=>{const i=r.id.slice(2);vars.push({tamanho:document.getElementById('vt'+i)?.value||null,cor:document.getElementById('vc'+i)?.value||null,estoque:parseInt(document.getElementById('ve'+i)?.value||0),estoque_minimo:parseInt(document.getElementById('vm'+i)?.value||5),codigo_barras:document.getElementById('vb'+i)?.value||null});});
   const body={nome:nm,marca:document.getElementById('pmk').value||null,categoria_id:document.getElementById('pct').value||null,genero:document.getElementById('pgn').value,preco_venda:pv,preco_custo:parseFloat(document.getElementById('ppc').value||0),icone:document.getElementById('pico')?.value||'👗',variacoes:vars};
   try{
     if(id)await req('PUT','/api/produtos/'+id,body);else await req('POST','/api/produtos',body);
@@ -1195,13 +1290,104 @@ async function mudaPed(id,status){try{await req('PUT','/api/pedidos/'+id,{status
 // ══════════════════════════════════════════
 // RELATÓRIOS
 // ══════════════════════════════════════════
+async function filtrarPeriodo(){
+  const ini=document.getElementById('rel-ini').value;
+  const fim=document.getElementById('rel-fim').value;
+  if(!ini||!fim)return toast('Selecione as datas','er');
+  const el=document.getElementById('periodo-result');
+  el.innerHTML='<div class="sp"></div>';
+  try{
+    const d=await req('GET',`/api/relatorios/vendas-periodo?data_inicio=${ini}&data_fim=${fim}`);
+    window._relPeriodo={ini,fim,dados:d};
+    const t=d.totais||{};
+    el.innerHTML=`
+    <div class="g3 mt4" style="gap:8px">
+      <div style="background:var(--bg);padding:10px;border-radius:8px;text-align:center"><div class="fxs txm">Total Vendido</div><div class="fb">${R(t.total)}</div></div>
+      <div style="background:var(--bg);padding:10px;border-radius:8px;text-align:center"><div class="fxs txm">Nº de Vendas</div><div class="fb">${t.num_vendas||0}</div></div>
+      <div style="background:var(--bg);padding:10px;border-radius:8px;text-align:center"><div class="fxs txm">Ticket Médio</div><div class="fb">${R(t.ticket_medio)}</div></div>
+    </div>`;
+    toast('Período filtrado!');
+  }catch(e){el.innerHTML='';toast('Erro: '+e.message,'er');}
+}
+
+function exportarExcel(){
+  const per=window._relPeriodo;
+  if(!per){toast('Filtre um período primeiro','er');return;}
+  const vendas=per.dados.vendas||[];
+  if(!vendas.length){toast('Nenhuma venda no período','wn');return;}
+  let csv='Numero;Data;Cliente;Forma Pagamento;Total\n';
+  vendas.forEach(v=>{
+    csv+=`${v.numero||''};${new Date(v.criado_em).toLocaleDateString('pt-BR')};${(v.clientes?.nome||'Consumidor').replace(/;/g,',')};${v.forma_pagamento};${(v.total||0).toFixed(2).replace('.',',')}\n`;
+  });
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`vendas_${per.ini}_a_${per.fim}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  toast('Excel exportado! 📊');
+}
+
+function exportarPDF(){
+  const per=window._relPeriodo;
+  if(!per){toast('Filtre um período primeiro','er');return;}
+  const vendas=per.dados.vendas||[];
+  if(!vendas.length){toast('Nenhuma venda no período','wn');return;}
+  const t=per.dados.totais||{};
+  const linhas=vendas.map(v=>`
+    <tr><td>${v.numero||''}</td><td>${new Date(v.criado_em).toLocaleDateString('pt-BR')}</td>
+    <td>${v.clientes?.nome||'Consumidor'}</td><td>${v.forma_pagamento}</td>
+    <td style="text-align:right">${R(v.total)}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório de Vendas</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:24px;color:#111}
+    h1{font-size:20px;margin-bottom:4px}
+    p.sub{color:#666;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th{background:#7C3AED;color:#fff;padding:8px;text-align:left;font-size:12px}
+    td{padding:8px;border-bottom:1px solid #eee;font-size:13px}
+    .totals{margin-top:20px;display:flex;gap:16px}
+    .tbox{background:#F5F3FF;padding:12px 20px;border-radius:8px;text-align:center}
+    .tbox .v{font-size:20px;font-weight:900;color:#7C3AED}
+    .tbox .l{font-size:11px;color:#666}
+    @media print{body{padding:10px}}
+  </style></head>
+  <body>
+    <h1>${S.loja?.nome||'ComercioOS'} — Relatório de Vendas</h1>
+    <p class="sub">Período: ${new Date(per.ini).toLocaleDateString('pt-BR')} até ${new Date(per.fim).toLocaleDateString('pt-BR')}</p>
+    <div class="totals">
+      <div class="tbox"><div class="v">${R(t.total)}</div><div class="l">Total Vendido</div></div>
+      <div class="tbox"><div class="v">${t.num_vendas||0}</div><div class="l">Vendas</div></div>
+      <div class="tbox"><div class="v">${R(t.ticket_medio)}</div><div class="l">Ticket Médio</div></div>
+    </div>
+    <table><thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Pagamento</th><th>Total</th></tr></thead><tbody>${linhas}</tbody></table>
+  </body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),300);
+}
+
 async function pgRel(){
   ld();
   try{
     const [dash,topClis,pd]=await Promise.all([req('GET','/api/relatorios/dashboard'),req('GET','/api/relatorios/clientes-top').catch(()=>[]),req('GET','/api/produtos?limit=200').catch(()=>({data:[]}))]);
     const prods=pd.data||[];const tc=Array.isArray(topClis)?topClis:[];
     const mes=dash.mes||{};const tp=dash.top_produtos||[];const mx=Math.max(...tp.map(p=>p.qtd),1);
-    set(`<div class="g4 mb4">
+    window._relProds=prods;
+    const hoje=new Date().toISOString().split('T')[0];
+    const mesAtras=new Date(Date.now()-30*86400000).toISOString().split('T')[0];
+    set(`
+    <div class="card mb4">
+      <div class="ch"><div class="ct">📅 Filtrar por Período</div></div>
+      <div class="fl g8" style="flex-wrap:wrap;align-items:flex-end">
+        <div class="fg" style="flex:1;min-width:140px;margin-bottom:0"><label>Data Início</label><input class="fi" type="date" id="rel-ini" value="${mesAtras}"></div>
+        <div class="fg" style="flex:1;min-width:140px;margin-bottom:0"><label>Data Fim</label><input class="fi" type="date" id="rel-fim" value="${hoje}"></div>
+        <button class="btn bp" onclick="filtrarPeriodo()">🔍 Filtrar</button>
+        <button class="btn bo" onclick="exportarExcel()">📊 Excel</button>
+        <button class="btn bo" onclick="exportarPDF()">📄 PDF</button>
+      </div>
+      <div id="periodo-result"></div>
+    </div>
+    <div class="g4 mb4">
       <div class="kpi"><div class="kpii" style="background:#D1FAE5">💰</div><div><div class="kpil">Faturamento Mês</div><div class="kpiv">${R(mes.total)}</div></div></div>
       <div class="kpi"><div class="kpii" style="background:#EDE9FE">🎯</div><div><div class="kpil">Ticket Médio</div><div class="kpiv">${R(mes.num_vendas?mes.total/mes.num_vendas:0)}</div></div></div>
       <div class="kpi"><div class="kpii" style="background:#FEF3C7">🏷️</div><div><div class="kpil">Vendas Mês</div><div class="kpiv">${mes.num_vendas||0}</div></div></div>
