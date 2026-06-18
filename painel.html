@@ -333,6 +333,7 @@ tr:hover td{background:#FAFAFA}
       <div class="fg"><label>Nome da loja</label><input class="fi" id="r-lj" placeholder="Ex: Boutique Elegance"></div>
       <div class="fg"><label>Seu nome</label><input class="fi" id="r-nm" placeholder="Seu nome completo"></div>
       <div class="fg"><label>Email</label><input class="fi" type="email" id="r-em" placeholder="seu@email.com"></div>
+      <div class="fg"><label>Telefone / WhatsApp</label><input class="fi" type="tel" id="r-tel" placeholder="(11) 99999-9999"></div>
       <div class="fg"><label>Senha</label><input class="fi" type="password" id="r-pw" placeholder="Mínimo 6 caracteres"></div>
       <button class="btn bp blk blg mt3" id="r-btn" onclick="doRegister()">Criar minha conta</button>
     </div>
@@ -479,13 +480,14 @@ async function doRegister(){
   const lj=document.getElementById('r-lj').value.trim();
   const nm=document.getElementById('r-nm').value.trim();
   const em=document.getElementById('r-em').value.trim();
+  const tel=document.getElementById('r-tel').value.trim();
   const pw=document.getElementById('r-pw').value;
-  if(!lj||!nm||!em||!pw)return toast('Preencha todos os campos','er');
+  if(!lj||!nm||!em||!tel||!pw)return toast('Preencha todos os campos','er');
   if(pw.length<6)return toast('Senha mínimo 6 caracteres','er');
   const btn=document.getElementById('r-btn');
   btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
   try{
-    const d=await req('POST','/api/auth/register',{nome_loja:lj,nome:nm,email:em,senha:pw});
+    const d=await req('POST','/api/auth/register',{nome_loja:lj,nome:nm,email:em,telefone:tel,senha:pw});
     S.token=d.token;S.user=d.usuario;S.loja=d.loja;
     localStorage.setItem('cOS',d.token);
     closeAuth();startApp();toast('Conta criada! 🎉');
