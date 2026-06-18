@@ -51,6 +51,22 @@ router.post('/register', async (req, res) => {
       { expiresIn: '30d' }
     );
 
+    // Notificação por Telegram de novo cadastro
+    const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+    const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
+    if (TELEGRAM_TOKEN && TELEGRAM_CHAT_ID) {
+      try {
+        const msg = `🎉 Novo cadastro no ComercioOS!\n\n🏪 Loja: ${nome_loja}\n👤 Responsável: ${nome}\n📧 Email: ${email}\n📅 ${new Date().toLocaleString('pt-BR')}`;
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg })
+        });
+      } catch (e) {
+        console.error('Erro ao enviar notificação Telegram:', e.message);
+      }
+    }
+
     res.status(201).json({ token, usuario: { id: usuario.id, nome, email, perfil: 'admin' }, loja });
   } catch (err) {
     console.error(err);
