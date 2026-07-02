@@ -70,11 +70,11 @@ router.get('/vendas-periodo', async (req, res) => {
   try {
     const { data_inicio, data_fim } = req.query;
     const { data: vendas } = await supabase.from('vendas')
-      .select('total, criado_em, forma_pagamento')
+      .select('numero, total, criado_em, forma_pagamento, clientes(nome)')
       .eq('loja_id', req.user.loja_id).eq('status', 'finalizada')
       .gte('criado_em', data_inicio || new Date(Date.now() - 30 * 86400000).toISOString())
       .lte('criado_em', (data_fim || new Date().toISOString().split('T')[0]) + 'T23:59:59')
-      .order('criado_em');
+      .order('criado_em', { ascending: false });
 
     const porDia = {};
     (vendas || []).forEach(v => {
@@ -114,6 +114,60 @@ router.get('/crediario', async (req, res) => {
   if (status) query = query.eq('status', status);
   const { data } = await query;
   res.json(data || []);
+});
+
+// POST /api/relatorios/crediario/:id/pagar — registra pagamento parcial ou total
+router.post('/crediario/:id/pagar', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { valor, forma_pagamento, quitar } = req.body;
+    const loja_id = req.user.loja_id;
+
+    if (!valor || valor <= 0) return res.status(400).json({ error: 'Valor inválido' });
+
+    const { data: cred, error: credErr } = await supabase
+      .from('crediario').select('*').eq('id', id).eq('loja_id', loja_id).single();
+
+    if (credErr || !cred) return res.status(404).json({ error: 'Crediário não encontrado' });
+    if (cred.status === 'quitado') return res.status(400).json({ error: 'Crediário já quitado' });
+
+    const novoSaldo = Math.max(0, (cred.saldo || 0) - valor);
+    const novoPago = (cred.pago || 0) + valor;
+    const quitado = novoSaldo <= 0.01 || quitar;
+    const novoStatus = quitado ? 'quitado' : 'ativo';
+    const novasParcPagas = quitado
+      ? (cred.parcelas || 1)
+      : Math.min((cred.parcelas_pagas || 0) + 1, cred.parcelas || 1);
+
+    const { error: updErr } = await supabase.from('crediario').update({
+      saldo: novoSaldo,
+      pago: novoPago,
+      status: novoStatus,
+      parcelas_pagas: novasParcPagas
+    }).eq('id', id);
+
+    if (updErr) throw updErr;
+
+    // Registra como movimentação financeira
+    await supabase.from('movimentacoes').insert({
+      loja_id,
+      tipo: 'entrada',
+      categoria: 'crediario',
+      descricao: `Recebimento crediário — ${cred.cliente_id || id}`,
+      valor,
+      forma_pagamento: forma_pagamento || 'dinheiro'
+    }).catch(() => {}); // não bloqueia se movimentações não existir
+
+    res.json({
+      success: true,
+      novo_saldo: novoSaldo,
+      status: novoStatus,
+      message: quitado ? 'Crediário quitado com sucesso!' : `Pagamento de R$${valor.toFixed(2).replace('.',',')} registrado`
+    });
+  } catch (err) {
+    console.error('Erro pagamento crediário:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
