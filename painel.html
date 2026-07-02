@@ -252,11 +252,19 @@ tr:hover td{background:#FAFAFA}
   .hbtn{display:flex}
   .g4,.g3{grid-template-columns:repeat(2,1fr);gap:10px}
   .g2{grid-template-columns:1fr}
-  .pdvw{grid-template-columns:1fr}
-  .page{padding:12px}
+  .pdvw{grid-template-columns:1fr;height:auto}
+  .pdvl{height:55vh;min-height:280px}
+  .pdvr{max-height:none}
+  .pdvg{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))!important;gap:6px}
+  .pc{padding:9px 5px!important}
+  .pci{font-size:26px!important}
+  .pcn{font-size:12px!important}
+  .pcp{font-size:12px!important}
+  .page{padding:10px}
   table th:nth-child(n+5),table td:nth-child(n+5){display:none}
   #toasts{left:10px;right:10px;bottom:10px}
   .toast{max-width:none}
+  .ci_{max-height:200px;overflow-y:auto}
 }
 @media(max-width:480px){
   .g4{grid-template-columns:1fr 1fr}
@@ -1243,10 +1251,78 @@ async function pgCred(){
       ${cs.map(c=>`<tr><td class="fb fsm">${c.clientes?.nome||'—'}</td><td>${R(c.total)}</td><td class="fb">${R(c.saldo)}</td>
       <td class="fxs txm">${c.vencimento?new Date(c.vencimento).toLocaleDateString('pt-BR'):'—'}</td>
       <td>${sb(c.status)}</td>
-      <td>${c.status!=='quitado'?`<button class="btn bs bsm" onclick="toast('Pagamento registrado!')">💰 Receber</button>`:'—'}</td></tr>`).join('')}
+      <td>${c.status!=='quitado'?`<button class="btn bs bsm" onclick="modalPagCred('${c.id}',${c.saldo||0},${c.total||0},${c.parcelas||1},${c.parcelas_pagas||0})">💰 Receber</button>`:'—'}</td></tr>`).join('')}
       </tbody></table></div>`}
     </div>`);
   }catch(e){errPage(e.message,'pgCred()');}
+}
+
+// ══════════════════════════════════════════
+// CREDIÁRIO - MODAL PAGAMENTO
+// ══════════════════════════════════════════
+function modalPagCred(id, saldo, total, parcelas, parcPagas) {
+  const fmtR = v => 'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
+  const restantes = parcelas - parcPagas;
+  const valParcela = restantes > 0 ? (saldo / restantes) : saldo;
+
+  openModal('💰 Registrar Pagamento', `
+    <div style="background:var(--bg);padding:12px;border-radius:9px;margin-bottom:14px">
+      <div class="fl fjb fsm mb3"><span class="txm">Total</span><span class="fb">${fmtR(total)}</span></div>
+      <div class="fl fjb fsm mb3"><span class="txm">Já pago</span><span class="fb" style="color:var(--ok)">${fmtR(total-saldo)}</span></div>
+      <div class="fl fjb fsm"><span class="txm">Saldo devedor</span><span class="fb" style="color:var(--err)">${fmtR(saldo)}</span></div>
+      ${parcelas>1?`<div class="fl fjb fsm mt3"><span class="txm">Parcelas</span><span class="fb">${parcPagas}/${parcelas} pagas</span></div>`:''}
+    </div>
+    <div class="fg">
+      <label>Tipo de pagamento</label>
+      <select class="fi" id="pcred-tipo" onchange="atualizarValCred(${saldo.toFixed(2)},${valParcela.toFixed(2)})">
+        ${parcelas>1&&restantes>0?`<option value="parcela">1 parcela (${fmtR(valParcela)})</option>`:''}
+        <option value="total">Quitar tudo (${fmtR(saldo)})</option>
+        <option value="personalizado">Valor personalizado</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Valor a receber (R$)</label>
+      <input class="fi" type="number" id="pcred-val" value="${parcelas>1&&restantes>0?valParcela.toFixed(2):saldo.toFixed(2)}" min="0.01" step="0.01">
+    </div>
+    <div class="fg">
+      <label>Forma de pagamento</label>
+      <select class="fi" id="pcred-forma">
+        <option value="dinheiro">💵 Dinheiro</option>
+        <option value="pix">⚡ PIX</option>
+        <option value="debito">💳 Débito</option>
+        <option value="credito">💰 Crédito</option>
+      </select>
+    </div>
+  `,
+  `<button class="btn bo" onclick="closeModal()">Cancelar</button>
+   <button class="btn bs" onclick="confirmarPagCred('${id}',${saldo})">✅ Confirmar</button>`,'msm');
+}
+
+function atualizarValCred(saldo, valParcela) {
+  const tipo = document.getElementById('pcred-tipo')?.value;
+  const inp = document.getElementById('pcred-val');
+  if (!inp) return;
+  if (tipo === 'total') inp.value = saldo;
+  else if (tipo === 'parcela') inp.value = valParcela;
+  // personalizado: deixa o usuário digitar
+}
+
+async function confirmarPagCred(id, saldo) {
+  const val = parseFloat(document.getElementById('pcred-val')?.value || 0);
+  const forma = document.getElementById('pcred-forma')?.value || 'dinheiro';
+  const tipo = document.getElementById('pcred-tipo')?.value || 'total';
+  if (!val || val <= 0) return toast('Informe o valor', 'er');
+  if (val > saldo + 0.01) return toast('Valor maior que o saldo devedor', 'er');
+  try {
+    const r = await req('POST', `/api/relatorios/crediario/${id}/pagar`, {
+      valor: val,
+      forma_pagamento: forma,
+      quitar: tipo === 'total' || val >= saldo - 0.01
+    });
+    toast(r.message || 'Pagamento registrado!');
+    closeModal();
+    pgCred();
+  } catch(e) { toast('Erro: ' + e.message, 'er'); }
 }
 
 // ══════════════════════════════════════════
