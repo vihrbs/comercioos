@@ -52,6 +52,11 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Venda sem itens' });
     }
 
+    // Crediário exige cliente
+    if (forma_pagamento === 'crediario' && !cliente_id) {
+      return res.status(400).json({ error: 'Crediário exige um cliente selecionado' });
+    }
+
     const numero = await gerarNumeroVenda(req.user.loja_id);
 
     let subtotal = 0;
@@ -64,6 +69,9 @@ router.post('/', async (req, res) => {
     const desc_val = desconto_valor || (subtotal * (desconto_pct || 0) / 100);
     const total = subtotal - desc_val + (acrescimo || 0);
 
+    // Crediário: status_pagamento = 'pendente'
+    const statusPagamento = forma_pagamento === 'crediario' ? 'pendente' : 'pago';
+
     const { data: venda, error: vendaErr } = await supabase.from('vendas').insert({
       loja_id: req.user.loja_id,
       cliente_id: cliente_id || null,
@@ -71,15 +79,17 @@ router.post('/', async (req, res) => {
       numero, subtotal, desconto_pct: desconto_pct || 0,
       desconto_valor: desc_val, acrescimo: acrescimo || 0,
       total, forma_pagamento, parcelas: parcelas || 1,
-      status: 'finalizada', status_pagamento: 'pago',
+      status: 'finalizada', status_pagamento: statusPagamento,
       troco: troco || 0, observacoes
     }).select().single();
     if (vendaErr) throw vendaErr;
 
+    // Insere itens
     await supabase.from('venda_itens').insert(
       itensProcessados.map(i => ({ ...i, venda_id: venda.id }))
     );
 
+    // Baixa estoque
     for (const item of itens) {
       if (item.variacao_id) {
         const { data: variacaoAtual } = await supabase.from('variacoes')
@@ -92,6 +102,7 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Atualiza cliente
     if (cliente_id) {
       const { data: cliente } = await supabase.from('clientes')
         .select('total_compras, num_compras, pontos').eq('id', cliente_id).single();
@@ -105,24 +116,35 @@ router.post('/', async (req, res) => {
       }
     }
 
-    await supabase.from('movimentacoes').insert({
-      loja_id: req.user.loja_id,
-      tipo: 'entrada',
-      categoria: 'venda',
-      descricao: `Venda ${numero}`,
-      valor: total,
-      forma_pagamento,
-      referencia_id: venda.id
-    });
+    // Movimentação financeira (só para pagamentos à vista)
+    if (forma_pagamento !== 'crediario') {
+      await supabase.from('movimentacoes').insert({
+        loja_id: req.user.loja_id,
+        tipo: 'entrada',
+        categoria: 'venda',
+        descricao: `Venda ${numero}`,
+        valor: total,
+        forma_pagamento,
+        referencia_id: venda.id
+      });
+    }
 
+    // Cria registro de crediário
     if (forma_pagamento === 'crediario' && cliente_id) {
+      const vencimento = new Date();
+      vencimento.setDate(vencimento.getDate() + 30);
+
       await supabase.from('crediario').insert({
         loja_id: req.user.loja_id,
         cliente_id,
         venda_id: venda.id,
-        total, saldo: total,
-        num_parcelas: parcelas || 1,
-        vencimento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        total,
+        pago: 0,
+        saldo: total,
+        parcelas: parcelas || 1,        // campo correto: parcelas (não num_parcelas)
+        parcelas_pagas: 0,
+        status: 'ativo',
+        vencimento: vencimento.toISOString()
       });
     }
 
