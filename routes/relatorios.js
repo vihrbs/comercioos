@@ -149,14 +149,16 @@ router.post('/crediario/:id/pagar', async (req, res) => {
     if (updErr) throw updErr;
 
     // Registra como movimentação financeira
-    await supabase.from('movimentacoes').insert({
-      loja_id,
-      tipo: 'entrada',
-      categoria: 'crediario',
-      descricao: `Recebimento crediário — ${cred.cliente_id || id}`,
-      valor,
-      forma_pagamento: forma_pagamento || 'dinheiro'
-    }).catch(() => {}); // não bloqueia se movimentações não existir
+    try {
+      await supabase.from('movimentacoes').insert({
+        loja_id,
+        tipo: 'entrada',
+        categoria: 'crediario',
+        descricao: 'Recebimento crediário',
+        valor,
+        forma_pagamento: forma_pagamento || 'dinheiro'
+      });
+    } catch (_) {} // não bloqueia se movimentações não existir
 
     res.json({
       success: true,
