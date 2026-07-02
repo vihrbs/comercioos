@@ -727,8 +727,7 @@ async function doLogin() {
     STATE.token = data.token; STATE.user = data.usuario; STATE.loja = data.loja;
     startApp();
   } catch (e) {
-    toast('Erro ao conectar. Usando modo demo.', 'warning');
-    initMockData(); startApp();
+    toast('Erro ao conectar ao servidor. Verifique sua conexão.', 'error');
   }
 }
 
@@ -2412,9 +2411,29 @@ function toast(msg, type = 'success') {
 // ============================================================
 //  INIT
 // ============================================================
-if (STATE.token) {
-  initMockData(); startApp();
-}
+// Restaura sessão real
+(async function() {
+  const tk = localStorage.getItem('comercioos_token');
+  if (!tk) return;
+  STATE.token = tk;
+  try {
+    const res = await fetch(API + '/api/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + tk }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      STATE.user = data;
+      STATE.loja = data.lojas;
+      startApp();
+    } else {
+      localStorage.removeItem('comercioos_token');
+      STATE.token = null;
+    }
+  } catch(e) {
+    // Mantém token e tenta usar mesmo assim
+    startApp();
+  }
+})();
 </script>
 </body>
 </html>
