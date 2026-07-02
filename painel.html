@@ -652,14 +652,25 @@ function initMockData() {
 //  API / DATA LAYER
 // ============================================================
 async function api(method, path, body) {
-  if (DEMO_MODE) return mockApi(method, path, body);
   const res = await fetch(API + path, {
     method,
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.token}` },
     body: body ? JSON.stringify(body) : undefined
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+
+  // Token expirado — força novo login
+  if (res.status === 401) {
+    localStorage.removeItem('comercioos_token');
+    STATE.token = null;
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+    toast('Sessão expirada. Faça login novamente.', 'warning');
+    throw new Error('Sessão expirada');
+  }
+
+  const data = await res.json().catch(() => ({ error: 'Resposta inválida do servidor' }));
+  if (!res.ok) throw new Error(data.error || 'Erro ' + res.status);
+  return data;
 }
 
 function mockApi(method, path, body) {
