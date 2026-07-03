@@ -278,6 +278,22 @@ tr:hover td{background:#FAFAFA}
 </style>
 </head>
 <body>
+<!-- TUTORIAL PRIMEIRO ACESSO -->
+<div id="tutorial-overlay" style="display:none;position:fixed;inset:0;z-index:9998;pointer-events:none"></div>
+<div id="tutorial-box" style="display:none;position:fixed;z-index:10000;background:#fff;border-radius:16px;padding:24px;width:300px;box-shadow:0 20px 40px rgba(0,0,0,.25);pointer-events:all">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+    <div id="tut-icon" style="width:40px;height:40px;border-radius:10px;background:var(--brand-l);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🛍️</div>
+    <div id="tut-titulo" style="font-size:15px;font-weight:800;color:var(--tx)">Bem-vindo!</div>
+  </div>
+  <div id="tut-desc" style="font-size:13px;color:var(--txm);line-height:1.6;margin-bottom:18px">Vamos te mostrar em menos de 1 minuto como usar o sistema.</div>
+  <div style="display:flex;gap:5px;margin-bottom:16px" id="tut-dots"></div>
+  <div style="display:flex;gap:8px">
+    <button onclick="fecharTutorial()" style="flex:1;padding:10px;border:1.5px solid var(--border);border-radius:50px;background:none;font-size:12px;font-weight:600;color:var(--txm);cursor:pointer">Pular</button>
+    <button onclick="tutProximo()" id="tut-btn" style="flex:2;padding:10px;border:none;border-radius:50px;background:var(--brand);color:#fff;font-size:13px;font-weight:700;cursor:pointer">Próximo →</button>
+  </div>
+</div>
+<div id="tutorial-hl" style="display:none;position:fixed;z-index:9999;border-radius:12px;box-shadow:0 0 0 9999px rgba(15,15,20,.78);pointer-events:none;transition:all .3s ease"></div>
+
 <div id="toasts"></div>
 
 <!-- LANDING -->
@@ -514,6 +530,7 @@ function startApp(){
   document.getElementById('sb-av').textContent=(S.user?.nome||'U')[0].toUpperCase();
   go('dashboard');
   verificarPlano();
+  setTimeout(iniciarTutorial, 800);
 }
 
 // ── PLANO / TRIAL ──
@@ -1552,6 +1569,103 @@ async function delCat(id){if(!confirm('Remover?'))return;try{await req('DELETE',
 // ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// TUTORIAL PRIMEIRO ACESSO
+// ══════════════════════════════════════════
+const TUT_PASSOS = [
+  {icon:'🛍️',titulo:'Bem-vindo ao ComercioOS!',desc:'Seu sistema completo para lojas de moda. Vamos te mostrar os módulos em poucos passos.',sel:null,pg:null},
+  {icon:'🛒',titulo:'PDV / Caixa',desc:'Aqui você realiza as vendas. Busque produtos, escolha tamanho e cor, selecione a forma de pagamento e finalize.',sel:'.ni.on',pg:'pdv'},
+  {icon:'👗',titulo:'Produtos',desc:'Cadastre seus produtos com variações de tamanho e cor, código de barras, ícone e preço de custo.',sel:null,pg:'produtos'},
+  {icon:'📦',titulo:'Estoque',desc:'Veja o nível de estoque de cada variação. Itens críticos aparecem em destaque para você repor a tempo.',sel:null,pg:'estoque'},
+  {icon:'👥',titulo:'Clientes',desc:'Cadastre clientes e acompanhe histórico de compras, pontos de fidelidade e total gasto.',sel:null,pg:'clientes'},
+  {icon:'💳',titulo:'Financeiro',desc:'Controle de caixa, movimentações de entrada e saída, e crediário (fiado) em um só lugar.',sel:null,pg:'financeiro'},
+  {icon:'📈',titulo:'Relatórios',desc:'Filtre vendas por período, exporte em Excel ou PDF, veja top produtos e top clientes.',sel:null,pg:'relatorios'},
+  {icon:'🎉',titulo:'Tudo pronto!',desc:'Agora é só começar! Cadastre seus produtos primeiro, depois abra o PDV e faça sua primeira venda.',sel:null,pg:null}
+];
+let TUT_PASSO = 0;
+
+function iniciarTutorial() {
+  if (localStorage.getItem('cOS_tutorial_ok')) return;
+  TUT_PASSO = 0;
+  document.getElementById('tutorial-box').style.display = 'block';
+  mostrarPassoTutorial();
+}
+
+function mostrarPassoTutorial() {
+  const p = TUT_PASSOS[TUT_PASSO];
+  const box = document.getElementById('tutorial-box');
+  const hl = document.getElementById('tutorial-hl');
+
+  document.getElementById('tut-icon').textContent = p.icon;
+  document.getElementById('tut-titulo').textContent = p.titulo;
+  document.getElementById('tut-desc').textContent = p.desc;
+
+  const btn = document.getElementById('tut-btn');
+  btn.textContent = TUT_PASSO === TUT_PASSOS.length - 1 ? '✅ Começar!' : 'Próximo →';
+
+  // Dots
+  const dots = document.getElementById('tut-dots');
+  dots.innerHTML = TUT_PASSOS.map((_,i) =>
+    `<div style="width:${i===TUT_PASSO?'20px':'7px'};height:7px;border-radius:50px;background:${i===TUT_PASSO?'var(--brand)':'var(--border)'};transition:all .25s"></div>`
+  ).join('');
+
+  // Highlight no menu
+  if (p.sel) {
+    const el = p.sel ? document.querySelector(p.sel) : null;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      hl.style.display = 'block';
+      hl.style.top = (rect.top - 4) + 'px';
+      hl.style.left = (rect.left - 4) + 'px';
+      hl.style.width = (rect.width + 8) + 'px';
+      hl.style.height = (rect.height + 8) + 'px';
+
+      // Posiciona box ao lado do highlight
+      const boxW = 300;
+      let left = rect.right + 14;
+      if (left + boxW > window.innerWidth) left = rect.left - boxW - 14;
+      box.style.left = Math.max(8, left) + 'px';
+      box.style.top = Math.min(rect.top, window.innerHeight - 260) + 'px';
+      box.style.bottom = 'auto';
+      box.style.right = 'auto';
+    } else {
+      hl.style.display = 'none';
+      posicionarBoxCentro(box);
+    }
+  } else {
+    hl.style.display = 'none';
+    posicionarBoxCentro(box);
+  }
+}
+
+function posicionarBoxCentro(box) {
+  box.style.top = '50%';
+  box.style.left = '50%';
+  box.style.transform = 'translate(-50%,-50%)';
+  box.style.right = 'auto';
+  box.style.bottom = 'auto';
+}
+
+function tutProximo() {
+  if (TUT_PASSO < TUT_PASSOS.length - 1) {
+    TUT_PASSO++;
+    // Se o passo tem uma página, navega pra ela
+    const p = TUT_PASSOS[TUT_PASSO];
+    if (p.pg) { go(p.pg); }
+    setTimeout(() => mostrarPassoTutorial(), p.pg ? 400 : 0);
+  } else {
+    fecharTutorial();
+  }
+}
+
+function fecharTutorial() {
+  document.getElementById('tutorial-box').style.display = 'none';
+  document.getElementById('tutorial-hl').style.display = 'none';
+  localStorage.setItem('cOS_tutorial_ok', '1');
+  // Volta pro dashboard
+  go('dashboard');
+}
+
 document.addEventListener('keydown',e=>{if(e.key==='Enter'){if(!document.getElementById('at-login').classList.contains('dn'))doLogin();else if(!document.getElementById('at-reg').classList.contains('dn'))doRegister();}});
 
 (async function(){
