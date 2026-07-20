@@ -357,9 +357,18 @@
   @media (max-width: 1100px) {
     .grid-4 { grid-template-columns: repeat(2, 1fr); }
   }
+  .hamburger { display: none; background: none; border: none; cursor: pointer; padding: 8px; border-radius: 8px; color: var(--text-primary); }
+  .hamburger:hover { background: var(--bg); }
+  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99; }
+
   @media (max-width: 768px) {
     :root { --sidebar-w: 0px; }
-    .sidebar { transform: translateX(-240px); }
+    .sidebar { transform: translateX(-240px); z-index: 100; }
+    .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,.3); }
+    .sidebar-overlay { display: block; opacity: 0; pointer-events: none; transition: opacity .25s; }
+    .sidebar-overlay.open { opacity: 1; pointer-events: all; }
+    .hamburger { display: flex; align-items: center; justify-content: center; }
+    .topbar { left: 0 !important; }
     .grid-3, .grid-2 { grid-template-columns: 1fr; }
     .pdv-layout { grid-template-columns: 1fr !important; grid-template-rows: auto auto; height: auto !important; }
     .pdv-products { height: 52vh; min-height: 300px; }
@@ -511,10 +520,18 @@
     </div>
   </nav>
 
+  <!-- SIDEBAR OVERLAY MOBILE -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
   <!-- MAIN -->
   <div class="main">
     <header class="topbar">
-      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <div class="topbar-title" id="page-title">Dashboard</div>
+      </div>
       <div class="topbar-actions">
         <div id="caixa-status" style="font-size:13px;"></div>
         <button class="btn btn-outline btn-sm" onclick="navigate('pdv')">🛒 Abrir PDV</button>
@@ -752,6 +769,19 @@ async function doRegister() {
   switchAuthTab('login');
 }
 
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('sidebarOverlay');
+  sb.classList.toggle('open');
+  ov.classList.toggle('open');
+}
+function closeSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('sidebarOverlay');
+  sb.classList.remove('open');
+  ov.classList.remove('open');
+}
+
 function startApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
@@ -780,6 +810,7 @@ function logout() {
 //  NAVIGATION
 // ============================================================
 function navigate(page) {
+  closeSidebar();
   STATE.currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const navBtns = document.querySelectorAll('.nav-item');
