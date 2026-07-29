@@ -746,12 +746,6 @@ async function doLogin() {
   const senha = document.getElementById('login-senha').value;
   if (!email || !senha) return toast('Preencha email e senha', 'error');
 
-  if (DEMO_MODE || email === 'demo@comercioos.com') {
-    initMockData();
-    startApp();
-    return;
-  }
-
   try {
     const res = await fetch(API + '/api/auth/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1364,7 +1358,14 @@ function filtrarProdutos(search) {
   document.getElementById('tabela-produtos').innerHTML = renderTabelaProdutos(prods);
 }
 
-function openProdutoModal(id) {
+async function openProdutoModal(id) {
+  // Garante que categorias estão carregadas
+  if (!STATE.categorias || STATE.categorias.length === 0) {
+    try {
+      const cats = await api('GET', '/api/categorias');
+      STATE.categorias = Array.isArray(cats) ? cats : [];
+    } catch(e) { STATE.categorias = []; }
+  }
   const prod = id ? STATE.produtos.find(p => p.id === id) : null;
   openModal(prod ? 'Editar Produto' : 'Novo Produto', `
     <div class="form-row">
@@ -1423,13 +1424,13 @@ function openProdutoModal(id) {
 }
 
 function variacaoRowHtml(v, i) {
-  return `<div class="variacao-row" id="var-row-${i}">
-    <input type="text" placeholder="Tamanho (P, M, G, 38...)" value="${v.tamanho||''}" id="var-tam-${i}" style="width:130px;flex-shrink:0">
-    <input type="text" placeholder="Cor" value="${v.cor||''}" id="var-cor-${i}" style="flex:1">
-    <input type="number" placeholder="Estoque" value="${v.estoque||0}" id="var-est-${i}" min="0" style="width:90px;flex-shrink:0">
-    <input type="number" placeholder="Est. Min." value="${v.estoque_minimo||5}" id="var-min-${i}" min="0" style="width:90px;flex-shrink:0">
-    <input type="text" placeholder="Cód. Barras" value="${v.codigo_barras||''}" id="var-cod-${i}" style="width:120px;flex-shrink:0">
-    <button onclick="removeVariacaoRow(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:18px;flex-shrink:0">×</button>
+  return `<div class="variacao-row" id="var-row-${i}" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg);padding:10px;border-radius:8px;margin-bottom:6px">
+    <input type="text" class="form-input" placeholder="Tamanho (P, M, G, 38...)" value="${v.tamanho||''}" id="var-tam-${i}">
+    <input type="text" class="form-input" placeholder="Cor (Azul, Preto...)" value="${v.cor||''}" id="var-cor-${i}">
+    <input type="number" class="form-input" placeholder="Estoque" value="${v.estoque||0}" id="var-est-${i}" min="0">
+    <input type="number" class="form-input" placeholder="Estoque Mínimo" value="${v.estoque_minimo||5}" id="var-min-${i}" min="0">
+    <input type="text" class="form-input" placeholder="Cód. Barras (opcional)" value="${v.codigo_barras||''}" id="var-cod-${i}" style="grid-column:1/-1">
+    <button onclick="removeVariacaoRow(${i})" style="grid-column:1/-1;background:none;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:4px;cursor:pointer;font-size:12px;font-weight:600">✕ Remover variação</button>
   </div>`;
 }
 
@@ -1443,44 +1444,53 @@ function removeVariacaoRow(i) {
 }
 
 async function salvarProduto(id) {
-  const nome = document.getElementById('prod-nome').value;
-  const preco_venda = parseFloat(document.getElementById('prod-preco').value);
-  if (!nome || !preco_venda) return toast('Nome e preço são obrigatórios', 'error');
+  const nome = (document.getElementById('prod-nome').value || '').trim();
+  const preco_venda = parseFloat(document.getElementById('prod-preco').value || 0);
+  if (!nome) return toast('Nome do produto é obrigatório', 'error');
+  if (!preco_venda || preco_venda <= 0) return toast('Preço de venda é obrigatório', 'error');
 
-  // Coleta variações
+  // Coleta variações do grid
   const variacoes = [];
   document.querySelectorAll('[id^="var-row-"]').forEach(row => {
-    const idx = row.id.split('-').pop();
-    const tam = document.getElementById('var-tam-' + idx)?.value;
+    const idx = row.id.replace('var-row-', '');
     variacoes.push({
-      tamanho: tam, cor: document.getElementById('var-cor-' + idx)?.value,
+      tamanho: (document.getElementById('var-tam-' + idx)?.value || '').trim() || null,
+      cor: (document.getElementById('var-cor-' + idx)?.value || '').trim() || null,
       estoque: parseInt(document.getElementById('var-est-' + idx)?.value || 0),
       estoque_minimo: parseInt(document.getElementById('var-min-' + idx)?.value || 5),
-      codigo_barras: document.getElementById('var-cod-' + idx)?.value
+      codigo_barras: (document.getElementById('var-cod-' + idx)?.value || '').trim() || null
     });
   });
 
   const dados = {
-    nome, marca: document.getElementById('prod-marca').value,
+    nome,
+    marca: (document.getElementById('prod-marca').value || '').trim() || null,
     categoria_id: document.getElementById('prod-cat').value || null,
-    genero: document.getElementById('prod-genero').value,
-    preco_venda, preco_custo: parseFloat(document.getElementById('prod-custo').value || 0),
-    descricao: document.getElementById('prod-desc').value, variacoes
+    genero: document.getElementById('prod-genero').value || 'feminino',
+    preco_venda,
+    preco_custo: parseFloat(document.getElementById('prod-custo').value || 0),
+    descricao: (document.getElementById('prod-desc').value || '').trim() || null,
+    variacoes
   };
 
-  // Atualiza local (demo)
-  if (id) {
-    const idx = STATE.produtos.findIndex(p => p.id === id);
-    if (idx !== -1) STATE.produtos[idx] = { ...STATE.produtos[idx], ...dados, variacoes };
-    toast('Produto atualizado!', 'success');
-  } else {
-    const newId = 'p' + Date.now();
-    STATE.produtos.push({ id: newId, ...dados, ativo: true, categorias: { nome: STATE.categorias.find(c=>c.id===dados.categoria_id)?.nome||'' }, criado_em: new Date().toISOString() });
-    toast('Produto criado!', 'success');
-  }
+  const btn = document.querySelector('#modal-footer .btn-primary');
+  if (btn) { btn.textContent = 'Salvando...'; btn.disabled = true; }
 
-  closeModal();
-  renderProdutos();
+  try {
+    if (id) {
+      await api('PUT', '/api/produtos/' + id, dados);
+      toast('Produto atualizado!', 'success');
+    } else {
+      await api('POST', '/api/produtos', dados);
+      toast('Produto criado!', 'success');
+    }
+    closeModal();
+    renderProdutos();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.textContent = '💾 Salvar'; btn.disabled = false; }
+  }
 }
 
 function editarProduto(id) { openProdutoModal(id); }
