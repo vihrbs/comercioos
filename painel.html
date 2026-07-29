@@ -2,6 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="theme-color" content="#7C3AED">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ComercioOS">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-apple.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ComercioOS — Gestão de Lojas</title>
 <style>
@@ -56,8 +63,9 @@
   /* LAYOUT */
   #app { display: none; min-height: 100vh; }
   .sidebar {
-    position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-w);
-    background: var(--text); display: flex; flex-direction: column; z-index: 100;
+    position: fixed; left: 0; top: 0; bottom: 0; width: 240px;
+    background: var(--text); display: flex; flex-direction: column; z-index: 200;
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
   }
   .sidebar-brand {
     padding: 20px; border-bottom: 1px solid rgba(255,255,255,.1);
@@ -98,9 +106,9 @@
   .user-name { color: white; font-size: 13px; font-weight: 600; }
   .user-role { color: var(--text-light); font-size: 11px; }
 
-  .main { margin-left: var(--sidebar-w); display: flex; flex-direction: column; min-height: 100vh; }
+  .main { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; }
   .topbar {
-    background: white; border-bottom: 1px solid var(--border); padding: 0 24px;
+    background: white; border-bottom: 1px solid var(--border); padding: 0 16px 0 24px;
     height: 64px; display: flex; align-items: center; justify-content: space-between;
     position: sticky; top: 0; z-index: 50;
   }
@@ -359,11 +367,11 @@
   }
   .hamburger { display: none; background: none; border: none; cursor: pointer; padding: 8px; border-radius: 8px; color: var(--text-primary); }
   .hamburger:hover { background: var(--bg); }
-  .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99; opacity: 0; pointer-events: none; transition: opacity .25s; display: none; }
+  .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 199; opacity: 0; pointer-events: none; transition: opacity .28s; display: none; }
 
   @media (max-width: 768px) {
-    :root { --sidebar-w: 0px; }
-    .sidebar { transform: translateX(-240px); z-index: 100; transition: transform .25s; }
+    .sidebar { transform: translateX(-100%); }
+    .main { margin-left: 0 !important; }
     .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,.3); }
     .sidebar-overlay { display: block; }
     .sidebar-overlay.open { opacity: 1; pointer-events: all; }
