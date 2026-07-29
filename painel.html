@@ -790,6 +790,31 @@ function startApp() {
   updateSidebar();
   navigate('dashboard');
   toast(`Bem-vindo, ${STATE.user.nome.split(' ')[0]}! 👋`, 'success');
+  carregarDadosBase();
+  setTimeout(function(){_showPWABanner();}, 4000);
+}
+
+async function carregarDadosBase() {
+  try {
+    const [cats, prods, clis, funcs] = await Promise.allSettled([
+      api('GET', '/api/categorias'),
+      api('GET', '/api/produtos?limit=500'),
+      api('GET', '/api/clientes?limit=500'),
+      api('GET', '/api/operacoes/funcionarios')
+    ]);
+    if (cats.status === 'fulfilled') STATE.categorias = Array.isArray(cats.value) ? cats.value : [];
+    if (prods.status === 'fulfilled') STATE.produtos = prods.value?.data || (Array.isArray(prods.value) ? prods.value : []);
+    if (clis.status === 'fulfilled') STATE.clientes = clis.value?.data || (Array.isArray(clis.value) ? clis.value : []);
+    if (funcs.status === 'fulfilled') STATE.funcionarios = Array.isArray(funcs.value) ? funcs.value : [];
+    // Recarrega página atual se estiver em produtos/estoque/clientes/PDV
+    const pg = STATE.currentPage;
+    if (['produtos','estoque','clientes','pdv'].includes(pg)) {
+      const renders = { produtos: renderProdutos, estoque: renderEstoque, clientes: renderClientes, pdv: renderPDV };
+      if (renders[pg]) renders[pg]();
+    }
+  } catch(e) {
+    console.warn('carregarDadosBase erro:', e);
+  }
 }
 
 function updateSidebar() {
@@ -838,6 +863,7 @@ function navigate(page) {
 }
 
 function setContent(html) { document.getElementById('page-content').innerHTML = html; }
+function loading() { setContent('<div style="display:flex;align-items:center;justify-content:center;min-height:200px"><div style="text-align:center"><div style="width:32px;height:32px;border:3px solid #E5E7EB;border-top-color:#6366f1;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px"></div><p style="color:#6B7280;font-size:13px">Carregando...</p></div></div>'); }
 
 // ============================================================
 //  DASHBOARD
@@ -1005,7 +1031,20 @@ function pagBadge(p) {
 // ============================================================
 //  PDV
 // ============================================================
-function renderPDV() {
+async function renderPDV() {
+  loading();
+  try {
+    const [pd,cd,cld,fnd] = await Promise.allSettled([
+      api('GET','/api/produtos?limit=500'),
+      api('GET','/api/categorias'),
+      api('GET','/api/clientes?limit=500'),
+      api('GET','/api/operacoes/funcionarios')
+    ]);
+    if(pd.status==='fulfilled') STATE.produtos = pd.value?.data || (Array.isArray(pd.value)?pd.value:[]);
+    if(cd.status==='fulfilled') STATE.categorias = Array.isArray(cd.value)?cd.value:[];
+    if(cld.status==='fulfilled') STATE.clientes = cld.value?.data || (Array.isArray(cld.value)?cld.value:[]);
+    if(fnd.status==='fulfilled') STATE.funcionarios = Array.isArray(fnd.value)?fnd.value:[];
+  } catch(e) { console.warn('PDV load:', e); }
   const cats = [{ id: null, nome: 'Todos' }, ...STATE.categorias];
   const catsHtml = cats.map(c => `<button class="pdv-cat-btn ${STATE.pdvCatFilter === c.id ? 'active' : ''}" onclick="pdvSetCat('${c.id}')">${c.nome}</button>`).join('');
   
@@ -1293,9 +1332,17 @@ function openRecibo(venda, total) {
 // ============================================================
 //  PRODUTOS
 // ============================================================
-function renderProdutos() {
-  const prods = STATE.produtos.filter(p => p.ativo);
-  setContent(`
+async function renderProdutos() {
+  loading();
+  try {
+    const [pd, cd] = await Promise.all([
+      api('GET', '/api/produtos?limit=500'),
+      api('GET', '/api/categorias')
+    ]);
+    STATE.produtos = pd?.data || (Array.isArray(pd) ? pd : []);
+    STATE.categorias = Array.isArray(cd) ? cd : STATE.categorias;
+    const prods = STATE.produtos.filter(p => p.ativo !== false);
+    setContent(`
     <div class="card">
       <div class="card-header">
         <div class="search-bar" style="max-width:300px">
@@ -1314,6 +1361,9 @@ function renderProdutos() {
       </div>
     </div>
   `);
+  } catch(e) {
+    setContent(`<div class="empty-state"><div class="empty-icon">⚠️</div><p class="empty-title">Erro ao carregar produtos</p><p>${e.message}</p><button class="btn btn-primary" onclick="renderProdutos()">Tentar novamente</button></div>`);
+  }
 }
 
 function renderTabelaProdutos(prods) {
@@ -1352,7 +1402,7 @@ function renderTabelaProdutos(prods) {
 function filtrarProdutos(search) {
   const q = (search || document.getElementById('prod-search')?.value || '').toLowerCase();
   const cat = document.getElementById('filtro-cat')?.value;
-  let prods = STATE.produtos.filter(p => p.ativo);
+  let prods = STATE.produtos.filter(p => p.ativo !== false);
   if (q) prods = prods.filter(p => p.nome.toLowerCase().includes(q) || (p.marca||'').toLowerCase().includes(q));
   if (cat) prods = prods.filter(p => p.categoria_id === cat);
   document.getElementById('tabela-produtos').innerHTML = renderTabelaProdutos(prods);
@@ -1485,7 +1535,7 @@ async function salvarProduto(id) {
       toast('Produto criado!', 'success');
     }
     closeModal();
-    renderProdutos();
+    await renderProdutos();
   } catch(e) {
     toast('Erro: ' + e.message, 'error');
   } finally {
@@ -1517,7 +1567,15 @@ function verVariacoes(prodId) {
 // ============================================================
 //  ESTOQUE
 // ============================================================
-function renderEstoque() {
+async function renderEstoque() {
+  loading();
+  try {
+    const pd = await api('GET', '/api/produtos?limit=500');
+    STATE.produtos = pd?.data || (Array.isArray(pd) ? pd : []);
+  } catch(e) {
+    setContent(`<div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p><button class="btn btn-primary" onclick="renderEstoque()">Tentar novamente</button></div>`);
+    return;
+  }
   const todasVar = STATE.produtos.flatMap(p => (p.variacoes||[]).map(v => ({ ...v, produto: p })));
   const critico = todasVar.filter(v => v.estoque <= v.estoque_minimo);
   const ok = todasVar.filter(v => v.estoque > v.estoque_minimo);
@@ -1618,7 +1676,16 @@ function confirmarAjuste(prodId, varId) {
 // ============================================================
 //  CLIENTES
 // ============================================================
-function renderClientes() {
+async function renderClientes() {
+  loading();
+  try {
+    const d = await api('GET', '/api/clientes?limit=500');
+    STATE.clientes = d?.data || (Array.isArray(d) ? d : []);
+  } catch(e) {
+    setContent(`<div class="empty-state"><div class="empty-icon">⚠️</div><p class="empty-title">Erro</p><p>${e.message}</p><button class="btn btn-primary" onclick="renderClientes()">Tentar novamente</button></div>`);
+    return;
+  }
+  const cs = STATE.clientes.filter(c => c.ativo !== false);
   setContent(`
     <div class="card">
       <div class="card-header">
@@ -1628,7 +1695,7 @@ function renderClientes() {
         <button class="btn btn-primary" onclick="openClienteModal()">+ Novo Cliente</button>
       </div>
       <div class="table-wrap" id="tabela-clientes">
-        ${renderTabelaClientes(STATE.clientes.filter(c=>c.ativo))}
+        ${renderTabelaClientes(cs)}
       </div>
     </div>
   `);
@@ -1694,27 +1761,25 @@ function openClienteModal(id) {
   `);
 }
 
-function salvarCliente(id) {
-  const nome = document.getElementById('cli-nome').value;
+async function salvarCliente(id) {
+  const nome = (document.getElementById('cli-nome').value || '').trim();
   if (!nome) return toast('Nome obrigatório', 'error');
   const dados = {
-    nome, cpf: document.getElementById('cli-cpf').value,
-    email: document.getElementById('cli-email').value,
-    telefone: document.getElementById('cli-tel').value,
-    data_nascimento: document.getElementById('cli-nasc').value,
-    genero: document.getElementById('cli-genero').value,
-    observacoes: document.getElementById('cli-obs').value
+    nome,
+    cpf: document.getElementById('cli-cpf')?.value || null,
+    email: document.getElementById('cli-email')?.value || null,
+    telefone: document.getElementById('cli-tel')?.value || null,
+    data_nascimento: document.getElementById('cli-nasc')?.value || null,
+    observacoes: document.getElementById('cli-obs')?.value || null
   };
-  if (id) {
-    const idx = STATE.clientes.findIndex(c => c.id === id);
-    if (idx !== -1) STATE.clientes[idx] = { ...STATE.clientes[idx], ...dados };
-    toast('Cliente atualizado!', 'success');
-  } else {
-    STATE.clientes.push({ id: 'cl' + Date.now(), ...dados, ativo: true, total_compras: 0, num_compras: 0, pontos: 0 });
-    toast('Cliente cadastrado!', 'success');
-  }
-  closeModal(); renderClientes();
+  try {
+    if (id) { await api('PUT', '/api/clientes/' + id, dados); toast('Cliente atualizado!', 'success'); }
+    else { await api('POST', '/api/clientes', dados); toast('Cliente cadastrado!', 'success'); }
+    closeModal();
+    await renderClientes();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
 }
+
 
 function verCliente(id) {
   const c = STATE.clientes.find(x => x.id === id);
@@ -1811,7 +1876,15 @@ function verVenda(id) {
 // ============================================================
 //  FUNCIONÁRIOS
 // ============================================================
-function renderFuncionarios() {
+async function renderFuncionarios() {
+  loading();
+  try {
+    const d = await api('GET', '/api/operacoes/funcionarios');
+    STATE.funcionarios = Array.isArray(d) ? d : [];
+  } catch(e) {
+    setContent(`<div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p><button class="btn btn-primary" onclick="renderFuncionarios()">Tentar novamente</button></div>`);
+    return;
+  }
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   setContent(`
     <div class="card">
@@ -1820,7 +1893,7 @@ function renderFuncionarios() {
         <button class="btn btn-primary" onclick="openFuncModal()">+ Novo Funcionário</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="func-grid">
-        ${STATE.funcionarios.filter(f=>f.ativo).map(f => `
+        ${STATE.funcionarios.filter(f=>f.ativo !== false).map(f => `
           <div class="card" style="padding:20px">
             <div class="flex items-center gap-3 mb-4">
               <div class="avatar" style="width:48px;height:48px;font-size:20px">${f.nome[0]}</div>
