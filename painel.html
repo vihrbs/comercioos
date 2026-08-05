@@ -369,6 +369,14 @@
   .hamburger:hover { background: var(--bg); }
   .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 199; opacity: 0; pointer-events: none; transition: opacity .28s; display: none; }
 
+  /* PERFIL SELECTOR */
+  .perfil-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; padding: 20px 0; }
+  .perfil-card { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 24px 16px; text-align: center; cursor: pointer; transition: all .15s; }
+  .perfil-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .perfil-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: var(--primary); margin: 0 auto 10px; }
+  .perfil-nome { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .perfil-cargo { font-size: 12px; color: var(--text-muted); }
+
   @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); }
     .main { margin-left: 0 !important; }
@@ -396,6 +404,22 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- AUTH -->
+<!-- SELETOR DE PERFIL (recepcionista) -->
+<div id="perfil-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:150;overflow-y:auto">
+  <div style="max-width:520px;margin:0 auto;padding:40px 20px">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="font-size:48px;margin-bottom:8px">🛍️</div>
+      <h2 style="font-size:22px;font-weight:800;margin-bottom:6px" id="perfil-loja-nome">ComercioOS</h2>
+      <p style="color:var(--text-muted);font-size:14px">Quem está usando agora?</p>
+    </div>
+    <div class="perfil-grid" id="perfil-lista"></div>
+    <div style="margin-top:32px;text-align:center;border-top:1px solid var(--border);padding-top:20px">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Você é o administrador?</p>
+      <button class="btn btn-outline btn-sm" onclick="voltarLogin()">🔐 Entrar com senha de admin</button>
+    </div>
+  </div>
+</div>
+
 <div id="auth-screen">
   <div class="auth-box">
     <div class="auth-logo">
@@ -550,6 +574,19 @@
 </div>
 
 <!-- MODAL CONTAINER -->
+<!-- MODAL SENHA RECEPCIONISTA -->
+<div id="pin-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;display:none;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:20px;padding:32px;width:320px;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,.3)">
+    <div class="avatar" id="pin-avatar" style="width:60px;height:60px;font-size:24px;margin:0 auto 10px"></div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:4px" id="pin-nome"></div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px">Digite sua senha</div>
+    <input class="form-input" type="password" id="pin-senha" placeholder="••••••" style="text-align:center;font-size:18px;letter-spacing:4px;margin-bottom:12px">
+    <div id="pin-erro" style="color:var(--danger);font-size:12px;margin-bottom:10px;min-height:16px"></div>
+    <button class="btn btn-primary btn-block" onclick="confirmarPinLogin()" id="pin-btn">Entrar</button>
+    <button class="btn btn-ghost btn-sm" onclick="fecharPin()" style="margin-top:8px;width:100%">Cancelar</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBg(event)">
   <div class="modal modal-md" id="modal">
     <div class="modal-header">
@@ -755,7 +792,7 @@ async function doLogin() {
     if (!res.ok) return toast(data.error, 'error');
     localStorage.setItem('comercioos_token', data.token);
     STATE.token = data.token; STATE.user = data.usuario; STATE.loja = data.loja;
-    startApp();
+    mostrarSeletorPerfil(data.loja, { token: data.token, usuario: data.usuario, loja: data.loja });
   } catch (e) {
     toast('Erro ao conectar ao servidor. Verifique sua conexão.', 'error');
   }
@@ -784,9 +821,275 @@ function closeSidebar() {
   ov.classList.remove('open');
 }
 
+// ============================================================
+//  SISTEMA DE RECEPCIONISTA / SELEÇÃO DE PERFIL
+// ============================================================
+let _pinUsuario = null;
+
+async function mostrarSeletorPerfil(loja, usuarioAdmin) {
+  // Carrega todos os usuários da loja
+  STATE.token = usuarioAdmin.token;
+  STATE.user = usuarioAdmin.usuario;
+  STATE.loja = usuarioAdmin.loja || loja;
+
+  let usuarios = [];
+  try {
+    usuarios = await api('GET', '/api/auth/usuarios');
+  } catch(e) {
+    // Se falhar, vai direto pro app como admin
+    startApp();
+    return;
+  }
+
+  // Só mostra seletor se tiver mais de 1 usuário ativo
+  const ativos = usuarios.filter(u => u.ativo !== false);
+  if (ativos.length <= 1) {
+    startApp();
+    return;
+  }
+
+  // Mostra tela de seleção
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('perfil-screen').style.display = 'block';
+  document.getElementById('perfil-loja-nome').textContent = STATE.loja?.nome || 'ComercioOS';
+
+  const lista = document.getElementById('perfil-lista');
+  lista.innerHTML = ativos.map(u => `
+    <div class="perfil-card" onclick="selecionarPerfil('${u.id}','${u.nome.replace(/'/g,"\'")}','${u.perfil}')">
+      <div class="perfil-avatar">${u.nome[0].toUpperCase()}</div>
+      <div class="perfil-nome">${u.nome}</div>
+      <div class="perfil-cargo">${u.cargo || (u.perfil === 'admin' ? 'Administrador' : 'Recepção')}</div>
+    </div>
+  `).join('');
+
+  // Salva lista de usuários para busca posterior
+  window._usuariosLoja = ativos;
+  window._adminCredentials = usuarioAdmin;
+}
+
+function selecionarPerfil(uid, nome, perfil) {
+  const u = (window._usuariosLoja || []).find(x => x.id === uid);
+  if (!u) return;
+
+  // Admin vai direto (já tem o token)
+  if (u.id === STATE.user?.id && perfil === 'admin') {
+    document.getElementById('perfil-screen').style.display = 'none';
+    startApp();
+    return;
+  }
+
+  // Outros precisam de senha
+  _pinUsuario = u;
+  const overlay = document.getElementById('pin-overlay');
+  document.getElementById('pin-avatar').textContent = nome[0].toUpperCase();
+  document.getElementById('pin-nome').textContent = nome;
+  document.getElementById('pin-senha').value = '';
+  document.getElementById('pin-erro').textContent = '';
+  overlay.style.display = 'flex';
+  setTimeout(() => document.getElementById('pin-senha').focus(), 100);
+}
+
+async function confirmarPinLogin() {
+  const senha = document.getElementById('pin-senha').value;
+  if (!senha) return;
+  const btn = document.getElementById('pin-btn');
+  btn.textContent = 'Verificando...'; btn.disabled = true;
+  document.getElementById('pin-erro').textContent = '';
+
+  try {
+    // Faz login com as credenciais do recepcionista
+    const res = await fetch(API + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: _pinUsuario.email, senha })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('pin-erro').textContent = 'Senha incorreta';
+      return;
+    }
+
+    // Login do recepcionista
+    localStorage.setItem('comercioos_token', data.token);
+    STATE.token = data.token;
+    STATE.user = data.usuario;
+    STATE.loja = data.loja || STATE.loja;
+
+    fecharPin();
+    document.getElementById('perfil-screen').style.display = 'none';
+    startApp();
+  } catch(e) {
+    document.getElementById('pin-erro').textContent = 'Erro de conexão';
+  } finally {
+    btn.textContent = 'Entrar'; btn.disabled = false;
+  }
+}
+
+function fecharPin() {
+  document.getElementById('pin-overlay').style.display = 'none';
+  _pinUsuario = null;
+}
+
+function voltarLogin() {
+  document.getElementById('perfil-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+// Enter no PIN
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.getElementById('pin-overlay').style.display === 'flex') {
+    confirmarPinLogin();
+  }
+});
+
+// ============================================================
+//  GESTÃO DE USUÁRIOS (em Configurações)
+// ============================================================
+const TODOS_MODULOS = ['dashboard','pdv','produtos','estoque','clientes','pedidos','vendas','financeiro','crediario','funcionarios','comissoes','relatorios','configuracoes'];
+const MODULOS_LABEL = {
+  dashboard:'📊 Dashboard', pdv:'🛒 PDV / Caixa', produtos:'👗 Produtos',
+  estoque:'📦 Estoque', clientes:'👥 Clientes', pedidos:'📋 Pedidos',
+  vendas:'💰 Vendas', financeiro:'💳 Financeiro', crediario:'📅 Crediário',
+  funcionarios:'👤 Funcionários', comissoes:'🏆 Comissões', relatorios:'📈 Relatórios',
+  configuracoes:'⚙️ Configurações'
+};
+
+async function renderUsuarios() {
+  const el = document.getElementById('secao-usuarios');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:16px"><div class="loading-spinner" style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>';
+  try {
+    const us = await api('GET', '/api/auth/usuarios');
+    if (!us.length) {
+      el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;padding:12px 0">Nenhum usuário além de você.</p>';
+      return;
+    }
+    el.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Nome</th><th>Cargo</th><th>Perfil</th><th>Ações</th></tr></thead>
+      <tbody>${us.filter(u=>u.id!==STATE.user?.id).map(u=>`
+        <tr>
+          <td><div class="font-bold">${u.nome}</div><div class="text-xs text-muted">${u.email}</div></td>
+          <td class="text-sm">${u.cargo||'—'}</td>
+          <td><span class="badge ${u.perfil==='admin'?'badge-purple':'badge-gray'}">${u.perfil==='admin'?'Admin':'Recepção'}</span></td>
+          <td>
+            <div class="flex gap-2">
+              <button class="btn btn-outline btn-sm" onclick="modalEditarUsuario('${u.id}','${u.nome.replace(/'/g,"\'")}',${JSON.stringify(u.permissoes||[])})">✏️ Permissões</button>
+              <button class="btn btn-danger btn-sm" onclick="deletarUsuario('${u.id}','${u.nome.replace(/'/g,"\'")}')">🗑</button>
+            </div>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  } catch(e) {
+    el.innerHTML = `<p style="color:var(--danger);font-size:13px">${e.message}</p>`;
+  }
+}
+
+function modalNovoUsuario() {
+  const permsHtml = TODOS_MODULOS.map(m =>
+    `<label style="display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px">
+      <input type="checkbox" value="${m}" name="nova-perm" style="accent-color:var(--primary)"
+        ${['dashboard','pdv','clientes'].includes(m)?'checked':''}> ${MODULOS_LABEL[m]}
+    </label>`
+  ).join('');
+
+  openModal('+ Novo Usuário da Loja', `
+    <div class="form-group"><label>Nome *</label><input type="text" class="form-input" id="nu-nome" placeholder="Nome completo"></div>
+    <div class="form-group"><label>Email *</label><input type="email" class="form-input" id="nu-email" placeholder="email@exemplo.com"></div>
+    <div class="form-group"><label>Cargo</label><input type="text" class="form-input" id="nu-cargo" placeholder="Ex: Recepcionista, Vendedora..."></div>
+    <div class="form-group"><label>Senha * (mín. 6 caracteres)</label><input type="password" class="form-input" id="nu-senha" placeholder="••••••"></div>
+    <div class="form-group">
+      <label>Permissões de acesso</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">${permsHtml}</div>
+      <div class="flex gap-2 mt-2">
+        <button type="button" class="btn btn-outline btn-sm" onclick="document.querySelectorAll('[name=nova-perm]').forEach(c=>c.checked=true)">Marcar todas</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="document.querySelectorAll('[name=nova-perm]').forEach(c=>c.checked=false)">Desmarcar</button>
+      </div>
+    </div>
+  `, `
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="salvarNovoUsuario()">Criar Usuário</button>
+  `);
+}
+
+async function salvarNovoUsuario() {
+  const nome = document.getElementById('nu-nome').value.trim();
+  const email = document.getElementById('nu-email').value.trim();
+  const cargo = document.getElementById('nu-cargo').value.trim();
+  const senha = document.getElementById('nu-senha').value;
+  if (!nome || !email || !senha) return toast('Nome, email e senha obrigatórios', 'error');
+  if (senha.length < 6) return toast('Senha mínimo 6 caracteres', 'error');
+  const permissoes = [...document.querySelectorAll('[name=nova-perm]:checked')].map(c=>c.value);
+  if (!permissoes.includes('dashboard')) permissoes.unshift('dashboard');
+
+  try {
+    await api('POST', '/api/auth/usuarios', { nome, email, senha, cargo: cargo||null, perfil: 'custom', permissoes });
+    toast('Usuário criado!', 'success');
+    closeModal();
+    renderUsuarios();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+function modalEditarUsuario(uid, nome, permsAtuais) {
+  const permsHtml = TODOS_MODULOS.map(m =>
+    `<label style="display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px">
+      <input type="checkbox" value="${m}" name="edit-perm" style="accent-color:var(--primary)"
+        ${permsAtuais.includes(m)?'checked':''}> ${MODULOS_LABEL[m]}
+    </label>`
+  ).join('');
+
+  openModal(`✏️ Permissões — ${nome}`, `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${permsHtml}</div>
+    <div class="flex gap-2 mt-2">
+      <button type="button" class="btn btn-outline btn-sm" onclick="document.querySelectorAll('[name=edit-perm]').forEach(c=>c.checked=true)">Marcar todas</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.querySelectorAll('[name=edit-perm]').forEach(c=>c.checked=false)">Desmarcar</button>
+    </div>
+  `, `
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="salvarPermissoes('${uid}')">Salvar</button>
+  `);
+}
+
+async function salvarPermissoes(uid) {
+  const permissoes = [...document.querySelectorAll('[name=edit-perm]:checked')].map(c=>c.value);
+  if (!permissoes.includes('dashboard')) permissoes.unshift('dashboard');
+  try {
+    await api('PUT', '/api/auth/usuarios/'+uid+'/permissoes', { permissoes });
+    toast('Permissões atualizadas!', 'success');
+    closeModal();
+    renderUsuarios();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+async function deletarUsuario(uid, nome) {
+  if (!confirm(`Remover ${nome}? Ele não conseguirá mais fazer login.`)) return;
+  try {
+    await api('DELETE', '/api/auth/usuarios/'+uid);
+    toast('Usuário removido!', 'success');
+    renderUsuarios();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+// ============================================================
+//  APP START
+// ============================================================
 function startApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
+  // Aplica permissões do usuário
+  const perms = STATE.user?.permissoes;
+  if (STATE.user?.perfil !== 'admin' && perms && perms.length > 0) {
+    STATE._permissoes = perms;
+    // Esconde itens do menu sem permissão
+    document.querySelectorAll('.nav-item[onclick]').forEach(el => {
+      const oc = el.getAttribute('onclick') || '';
+      const match = oc.match(/navigate\(['"]([^'"]+)['"]\)/);
+      if (match && !perms.includes(match[1])) el.style.display = 'none';
+    });
+  } else {
+    STATE._permissoes = null;
+    document.querySelectorAll('.nav-item').forEach(el => el.style.display = '');
+  }
   updateSidebar();
   navigate('dashboard');
   toast(`Bem-vindo, ${STATE.user.nome.split(' ')[0]}! 👋`, 'success');
@@ -837,6 +1140,11 @@ function logout() {
 //  NAVIGATION
 // ============================================================
 function navigate(page) {
+  // Verifica permissão se não for admin
+  if (STATE.user?.perfil !== 'admin' && STATE._permissoes && !STATE._permissoes.includes(page) && page !== 'dashboard') {
+    toast('Sem permissão para acessar esta área', 'error');
+    return;
+  }
   closeSidebar();
   STATE.currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -2187,7 +2495,7 @@ async function renderCrediario() {
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   let crediarios = [];
   try {
-    const d = await req('GET', '/api/relatorios/crediario');
+    const d = await api('GET', '/api/relatorios/crediario');
     crediarios = Array.isArray(d) ? d : [];
   } catch(e) {
     setContent(`<div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p><button class="btn btn-primary" onclick="renderCrediario()">Tentar novamente</button></div>`);
@@ -2280,7 +2588,7 @@ async function confirmarPagCred(id, saldoAtual) {
   if (val > saldoAtual + 0.01) return toast(`Valor maior que o saldo (${(saldoAtual).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})})`, 'error');
 
   try {
-    await req('POST', `/api/relatorios/crediario/${id}/pagar`, {
+    await api('POST', `/api/relatorios/crediario/${id}/pagar`, {
       valor: val,
       forma_pagamento: forma,
       quitar: val >= saldoAtual - 0.01
@@ -2296,11 +2604,13 @@ async function confirmarPagCred(id, saldoAtual) {
 // ============================================================
 //  PEDIDOS
 // ============================================================
-function renderPedidos() {
-  const pedidos = [
-    { id: 'pd1', numero: 'P-00001', cliente: 'Ana Paula Ferreira', tipo: 'reserva', status: 'aberto', total: 219.90, criado_em: new Date().toISOString() },
-    { id: 'pd2', numero: 'P-00002', cliente: 'Beatriz Santos', tipo: 'balcao', status: 'em_separacao', total: 89.90, criado_em: new Date().toISOString() }
-  ];
+async function renderPedidos() {
+  loading();
+  let pedidos = [];
+  try {
+    const d = await api('GET', '/api/pedidos');
+    pedidos = Array.isArray(d) ? d : [];
+  } catch(e) { console.warn(e); }
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   const stMap = { aberto:'badge-blue', em_separacao:'badge-yellow', pronto:'badge-green', entregue:'badge-gray', cancelado:'badge-red' };
   const stLabel = { aberto:'Aberto', em_separacao:'Em Separação', pronto:'Pronto', entregue:'Entregue', cancelado:'Cancelado' };
@@ -2443,6 +2753,10 @@ function renderRelatorios() {
 //  CONFIGURAÇÕES
 // ============================================================
 function renderConfiguracoes() {
+  // Carrega usuários após render
+  setTimeout(() => {
+    if (STATE.user?.perfil === 'admin') renderUsuarios();
+  }, 300);
   const l = STATE.loja;
   setContent(`
     <div class="grid grid-2">
