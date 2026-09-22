@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const supabase = require('../utils/supabase');
 const { authMiddleware } = require('../middleware/auth');
 
-const TODOS_MODULOS = ['dashboard','pdv','produtos','estoque','clientes','pedidos','vendas','financeiro','crediario','funcionarios','comissoes','relatorios','config'];
+const TODOS_MODULOS = ['dashboard','pdv','produtos','estoque','clientes','pedidos','vendas','financeiro','crediario','funcionarios','comissoes','relatorios','configuracoes'];
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
@@ -61,7 +61,7 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({
       token,
-      usuario: { id: usuario.id, nome, email, perfil: 'admin', permissoes: TODOS_MODULOS },
+      usuario: { id: usuario.id, nome, email, perfil: 'admin', permissoes: TODOS_MODULOS, super_admin: false },
       loja
     });
   } catch (err) {
@@ -109,7 +109,7 @@ router.post('/login', async (req, res) => {
 
     res.json({
       token,
-      usuario: { id: usuario.id, nome: usuario.nome, email, perfil: usuario.perfil, permissoes, cargo: usuario.cargo || null },
+      usuario: { id: usuario.id, nome: usuario.nome, email, perfil: usuario.perfil, permissoes, cargo: usuario.cargo || null, super_admin: usuario.super_admin || false },
       loja: usuario.lojas
     });
   } catch (err) {
