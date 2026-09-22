@@ -20,6 +20,7 @@
     "express-validator": "^7.0.1",
     "uuid": "^9.0.0",
     "date-fns": "^3.0.6",
-    "express-rate-limit": "^7.4.1"
+    "express-rate-limit": "^7.4.1",
+    "ws": "^8.18.0"
   }
 }
