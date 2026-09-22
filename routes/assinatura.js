@@ -1,9 +1,11 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const supabase = require('../utils/supabase');
 const { authMiddleware } = require('../middleware/auth');
 
 const MP_TOKEN = process.env.MP_ACCESS_TOKEN;
+const MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET; // pegue no painel do MP: Suas integrações > Webhooks > Chave secreta
 const PLANO_VALOR = 59.99;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://vihrbs.github.io/comercioos';
 
@@ -50,7 +52,6 @@ router.post('/criar', authMiddleware, async (req, res) => {
       .eq('id', req.user.loja_id)
       .single();
 
-    // Checkout Pro — aceita PIX, boleto, cartão
     const preference = {
       items: [{
         id: 'comercioos-mensal',
@@ -65,7 +66,7 @@ router.post('/criar', authMiddleware, async (req, res) => {
       },
       payment_methods: {
         excluded_payment_types: [],
-        installments: 1 // sem parcelamento
+        installments: 1
       },
       back_urls: {
         success: `${FRONTEND_URL}?pagamento=aprovado`,
@@ -74,7 +75,7 @@ router.post('/criar', authMiddleware, async (req, res) => {
       },
       auto_return: 'approved',
       notification_url: `https://comercioos-production.up.railway.app/api/assinatura/webhook`,
-      external_reference: req.user.loja_id, // para identificar a loja no webhook
+      external_reference: req.user.loja_id,
       statement_descriptor: 'COMERCIOOS',
       expires: false
     };
@@ -93,8 +94,8 @@ router.post('/criar', authMiddleware, async (req, res) => {
 
     res.json({
       preference_id: data.id,
-      init_point: data.init_point,       // produção
-      sandbox_init_point: data.sandbox_init_point // testes
+      init_point: data.init_point,
+      sandbox_init_point: data.sandbox_init_point
     });
   } catch (err) {
     console.error('Erro ao criar preference:', err);
@@ -102,9 +103,52 @@ router.post('/criar', authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * Valida a assinatura do webhook do Mercado Pago (header x-signature).
+ * Documentação do MP: Webhooks > Verificar a origem da notificação.
+ *
+ * Formato do header:  x-signature: ts=1712345678,v1=abcde123...
+ * Manifesto assinado: "id:<data.id>;request-id:<x-request-id>;ts:<ts>;"
+ * (o <data.id> vem do QUERY STRING da URL de notificação, ex: ?data.id=123)
+ *
+ * IMPORTANTE: confirme esse formato contra a documentação atual do MP antes
+ * de confiar 100% nisso em produção — a Mercado Pago já mudou esse esquema
+ * de assinatura antes. Teste no sandbox e confira os logs.
+ */
+function validarAssinaturaMP(req) {
+  if (!MP_WEBHOOK_SECRET) {
+    console.warn('⚠️  MP_WEBHOOK_SECRET não configurado — pulando validação de assinatura!');
+    return true; // não bloqueia se ainda não configurou, mas loga o alerta
+  }
+
+  const xSignature = req.headers['x-signature'];
+  const xRequestId = req.headers['x-request-id'];
+  if (!xSignature) return false;
+
+  const partes = {};
+  xSignature.split(',').forEach(p => {
+    const [k, v] = p.split('=');
+    if (k && v) partes[k.trim()] = v.trim();
+  });
+  const { ts, v1 } = partes;
+  if (!ts || !v1) return false;
+
+  const dataId = req.query['data.id'] || req.body?.data?.id || '';
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+
+  const hmac = crypto.createHmac('sha256', MP_WEBHOOK_SECRET).update(manifest).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(v1));
+}
+
 // POST /api/assinatura/webhook — MP notifica resultado do pagamento
 router.post('/webhook', async (req, res) => {
   try {
+    // 1. Verifica se a notificação realmente vem do Mercado Pago
+    if (!validarAssinaturaMP(req)) {
+      console.warn('Webhook MP com assinatura inválida — ignorado');
+      return res.sendStatus(401);
+    }
+
     const { type, data } = req.body;
     console.log('Webhook MP recebido:', type, JSON.stringify(data));
 
@@ -112,7 +156,17 @@ router.post('/webhook', async (req, res) => {
       const paymentId = data?.id;
       if (!paymentId) return res.sendStatus(200);
 
-      // Busca detalhes do pagamento no MP
+      // 2. Idempotência: se esse payment_id já foi processado antes, ignora.
+      // Sem isso, reenviar (replay) a mesma notificação estende a assinatura
+      // por +30 dias de novo, de graça, quantas vezes quiser.
+      const { data: jaProcessado } = await supabase.from('pagamentos')
+        .select('id').eq('mp_subscription_id', String(paymentId)).maybeSingle();
+      if (jaProcessado) {
+        console.log(`Pagamento ${paymentId} já processado — ignorando repetição`);
+        return res.sendStatus(200);
+      }
+
+      // Busca detalhes reais do pagamento na API do MP (nunca confia no body sozinho)
       const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: { 'Authorization': `Bearer ${MP_TOKEN}` }
       });
@@ -124,7 +178,6 @@ router.post('/webhook', async (req, res) => {
       if (!lojaId) return res.sendStatus(200);
 
       if (payment.status === 'approved') {
-        // Ativa a loja por 30 dias
         const proximoVencimento = new Date();
         proximoVencimento.setDate(proximoVencimento.getDate() + 30);
 
@@ -133,7 +186,6 @@ router.post('/webhook', async (req, res) => {
           trial_expires_at: proximoVencimento.toISOString()
         }).eq('id', lojaId);
 
-        // Registra o pagamento
         await supabase.from('pagamentos').insert({
           loja_id: lojaId,
           mp_subscription_id: String(paymentId),
