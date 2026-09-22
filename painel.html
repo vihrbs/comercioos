@@ -2579,9 +2579,21 @@ async function verVenda(id) {
       <button class="btn btn-outline" onclick="modalCorrigirPagamento('${v.id}','${v.forma_pagamento}')">✏️ Corrigir pagamento</button>
       <button class="btn btn-outline" onclick="closeModal();navigate('trocas');setTimeout(()=>modalNovaTroca('${v.numero}'),200)">🔄 Trocar/Devolver</button>
       ${v.clientes?.telefone ? `<button class="btn btn-success" onclick='reenviarReciboWhatsapp(${JSON.stringify(v)})'>📱 WhatsApp</button>` : ''}
+      <button class="btn btn-danger" onclick="confirmarCancelarVenda('${v.id}','${v.numero}')">🗑️ Cancelar Venda</button>
     ` : ''}
     <button class="btn btn-primary" onclick="closeModal()">Fechar</button>
   `;
+}
+
+async function confirmarCancelarVenda(vendaId, numero) {
+  if (!confirm(`Cancelar a venda ${numero}? O estoque dos itens volta automaticamente. Essa ação não pode ser desfeita.`)) return;
+  try {
+    await api('PUT', `/api/vendas/${vendaId}/cancelar`);
+    toast('Venda cancelada e estoque devolvido!', 'success');
+    verVenda(vendaId); // recarrega a comanda já mostrando o status cancelado
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
 function modalCorrigirPagamento(vendaId, formaAtual) {
