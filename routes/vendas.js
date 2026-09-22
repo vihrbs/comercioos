@@ -8,25 +8,8 @@ const { verificarPermissao } = require('../middleware/permissao');
 // esse arquivo atende duas telas diferentes do front (PDV e Vendas/Histórico).
 
 /*
- * IMPORTANTE — baixa de estoque atômica:
- * Ler o estoque e depois escrever em duas chamadas separadas permite que
- * duas vendas simultâneas leiam o mesmo valor antes de uma delas escrever,
- * causando venda de itens que não existem mais (condição de corrida).
- *
- * Este arquivo assume uma função SQL no Supabase que faz o decremento de
- * forma atômica e só aplica se houver estoque suficiente. Rode isso uma vez
- * no SQL Editor do Supabase antes de usar o código abaixo:
- *
- *   create or replace function baixar_estoque(p_variacao_id uuid, p_quantidade int)
- *   returns table(estoque_restante int) as $$
- *     update variacoes
- *     set estoque = estoque - p_quantidade
- *     where id = p_variacao_id and estoque >= p_quantidade
- *     returning estoque;
- *   $$ language sql volatile;
- *
- * Se a função não existir ainda, o código usa um fallback (leitura + escrita
- * condicional) que reduz — mas não elimina — a janela de corrida.
+ * IMPORTANTE — baixa de estoque atômica: veja migration_baixar_estoque.sql
+ * e migration_features_v2.sql (função devolver_estoque, usada pelas trocas).
  */
 async function baixarEstoqueAtomico(variacao_id, quantidade) {
   const { data, error } = await supabase.rpc('baixar_estoque', {
@@ -38,8 +21,6 @@ async function baixarEstoqueAtomico(variacao_id, quantidade) {
     return { ok: data && data.length > 0, estoqueInsuficiente: !(data && data.length > 0) };
   }
 
-  // Fallback se a função RPC ainda não foi criada no banco (não é 100% atômico,
-  // mas evita estoque negativo e é melhor que o comportamento anterior)
   const { data: variacaoAtual } = await supabase.from('variacoes')
     .select('estoque').eq('id', variacao_id).single();
   if (!variacaoAtual) return { ok: false, estoqueInsuficiente: false };
@@ -47,7 +28,7 @@ async function baixarEstoqueAtomico(variacao_id, quantidade) {
 
   const { data: upd } = await supabase.from('variacoes')
     .update({ estoque: variacaoAtual.estoque - quantidade })
-    .eq('id', variacao_id).eq('estoque', variacaoAtual.estoque) // reduz a janela de corrida
+    .eq('id', variacao_id).eq('estoque', variacaoAtual.estoque)
     .select().maybeSingle();
 
   return { ok: !!upd, estoqueInsuficiente: !upd };
@@ -88,28 +69,46 @@ router.get('/', verificarPermissao(['pdv', 'vendas']), async (req, res) => {
 
 router.get('/:id', verificarPermissao(['pdv', 'vendas']), async (req, res) => {
   const { data, error } = await supabase.from('vendas')
-    .select('*, clientes(*), funcionarios(nome), venda_itens(*)')
+    .select('*, clientes(*), funcionarios(nome), venda_itens(*), venda_pagamentos(*)')
     .eq('id', req.params.id).eq('loja_id', req.user.loja_id).single();
   if (error) return res.status(404).json({ error: 'Venda não encontrada' });
   res.json(data);
 });
 
+/**
+ * POST /api/vendas
+ * `forma_pagamento` continua aceito (compatibilidade — pagamento único).
+ * Para pagamento dividido, envie `pagamentos: [{ forma_pagamento, valor }]`
+ * em vez de `forma_pagamento` — a soma precisa bater com o total da venda.
+ * 'credito_loja' é uma forma de pagamento válida: debita do saldo_credito
+ * do cliente (exige cliente_id e saldo suficiente).
+ */
 router.post('/', verificarPermissao('pdv'), async (req, res) => {
   try {
-    const { itens, cliente_id, funcionario_id, forma_pagamento, parcelas,
+    const { itens, cliente_id, funcionario_id, forma_pagamento, pagamentos, parcelas,
             desconto_pct, desconto_valor, acrescimo, observacoes, troco } = req.body;
 
     if (!itens || itens.length === 0) {
       return res.status(400).json({ error: 'Venda sem itens' });
     }
 
+    const usaPagamentoDividido = Array.isArray(pagamentos) && pagamentos.length > 0;
+    if (!usaPagamentoDividido && !forma_pagamento) {
+      return res.status(400).json({ error: 'Informe a forma de pagamento' });
+    }
+
+    const formasUsadas = usaPagamentoDividido ? pagamentos.map(p => p.forma_pagamento) : [forma_pagamento];
+
     // Crediário exige cliente
-    if (forma_pagamento === 'crediario' && !cliente_id) {
+    if (formasUsadas.includes('crediario') && !cliente_id) {
       return res.status(400).json({ error: 'Crediário exige um cliente selecionado' });
+    }
+    // Crédito de loja exige cliente (o saldo é dele)
+    if (formasUsadas.includes('credito_loja') && !cliente_id) {
+      return res.status(400).json({ error: 'Pagamento com crédito de loja exige um cliente selecionado' });
     }
 
     // ---- PREÇO NUNCA VEM DO CLIENTE: busca o preço real de cada item no banco ----
-    // (evita que alguém chamando a API direto envie um preco_unitario falso)
     const idsVariacoes = itens.filter(i => i.variacao_id).map(i => i.variacao_id);
     const { data: variacoesReais } = idsVariacoes.length
       ? await supabase.from('variacoes')
@@ -126,15 +125,11 @@ router.post('/', verificarPermissao('pdv'), async (req, res) => {
       let precoReal;
       if (item.variacao_id) {
         const v = mapaVariacoes[item.variacao_id];
-        // Garante que a variação pertence a um produto desta loja (evita
-        // vender item de outra loja usando um variacao_id adivinhado)
         if (!v || v.produtos.loja_id !== req.user.loja_id) {
           return res.status(400).json({ error: `Item inválido: ${item.nome_produto || item.variacao_id}` });
         }
         precoReal = v.produtos.preco_venda;
       } else {
-        // Item sem variação cadastrada (ex: serviço avulso) — não temos como
-        // validar preço contra o banco; mantém o valor mas fica registrado.
         precoReal = item.preco_unitario;
       }
       const sub = precoReal * item.quantidade - (item.desconto || 0);
@@ -145,8 +140,40 @@ router.post('/', verificarPermissao('pdv'), async (req, res) => {
     const desc_val = desconto_valor || (subtotal * (desconto_pct || 0) / 100);
     const total = subtotal - desc_val + (acrescimo || 0);
 
-    // Crediário: status_pagamento = 'pendente'
-    const statusPagamento = forma_pagamento === 'crediario' ? 'pendente' : 'pago';
+    // ---- Valida pagamento dividido: a soma precisa bater com o total ----
+    if (usaPagamentoDividido) {
+      const somaPagamentos = pagamentos.reduce((s, p) => s + Number(p.valor || 0), 0);
+      if (Math.abs(somaPagamentos - total) > 0.01) {
+        return res.status(400).json({
+          error: `Soma dos pagamentos (R$${somaPagamentos.toFixed(2)}) não corresponde ao total da venda (R$${total.toFixed(2)})`
+        });
+      }
+    }
+
+    // ---- Valida saldo de crédito de loja, se usado ----
+    const valorCreditoLoja = usaPagamentoDividido
+      ? pagamentos.filter(p => p.forma_pagamento === 'credito_loja').reduce((s, p) => s + Number(p.valor || 0), 0)
+      : (forma_pagamento === 'credito_loja' ? total : 0);
+
+    let clienteAtual = null;
+    if (cliente_id) {
+      const { data: c } = await supabase.from('clientes')
+        .select('total_compras, num_compras, pontos, saldo_credito')
+        .eq('id', cliente_id).eq('loja_id', req.user.loja_id).single();
+      clienteAtual = c;
+    }
+    if (valorCreditoLoja > 0) {
+      if (!clienteAtual) return res.status(400).json({ error: 'Cliente não encontrado' });
+      if ((clienteAtual.saldo_credito || 0) < valorCreditoLoja) {
+        return res.status(400).json({ error: 'Saldo de crédito insuficiente' });
+      }
+    }
+
+    const temCrediario = formasUsadas.includes('crediario');
+    const statusPagamento = temCrediario ? 'pendente' : 'pago';
+    const formaPrincipal = usaPagamentoDividido
+      ? (pagamentos.length > 1 ? 'misto' : pagamentos[0].forma_pagamento)
+      : forma_pagamento;
 
     const numero = await gerarNumeroVenda(req.user.loja_id);
 
@@ -156,20 +183,21 @@ router.post('/', verificarPermissao('pdv'), async (req, res) => {
       funcionario_id: funcionario_id || null,
       numero, subtotal, desconto_pct: desconto_pct || 0,
       desconto_valor: desc_val, acrescimo: acrescimo || 0,
-      total, forma_pagamento, parcelas: parcelas || 1,
+      total, forma_pagamento: formaPrincipal, parcelas: parcelas || 1,
       status: 'finalizada', status_pagamento: statusPagamento,
       troco: troco || 0, observacoes
     }).select().single();
     if (vendaErr) throw vendaErr;
 
-    // Insere itens (já com preco_unitario/subtotal reais)
+    const linhasPagamento = usaPagamentoDividido
+      ? pagamentos.map(p => ({ venda_id: venda.id, forma_pagamento: p.forma_pagamento, valor: Number(p.valor) }))
+      : [{ venda_id: venda.id, forma_pagamento, valor: total }];
+    await supabase.from('venda_pagamentos').insert(linhasPagamento);
+
     await supabase.from('venda_itens').insert(
       itensProcessados.map(i => ({ ...i, venda_id: venda.id }))
     );
 
-    // Baixa estoque de forma atômica — se algum item não tiver estoque
-    // suficiente, a venda já foi criada (mantemos assim para não complicar
-    // o fluxo de PDV), mas avisamos no retorno.
     const itensSemEstoque = [];
     for (const item of itens) {
       if (item.variacao_id) {
@@ -178,36 +206,41 @@ router.post('/', verificarPermissao('pdv'), async (req, res) => {
       }
     }
 
-    // Atualiza cliente
-    if (cliente_id) {
-      const { data: cliente } = await supabase.from('clientes')
-        .select('total_compras, num_compras, pontos')
-        .eq('id', cliente_id).eq('loja_id', req.user.loja_id).single();
-      if (cliente) {
-        await supabase.from('clientes').update({
-          total_compras: (cliente.total_compras || 0) + total,
-          num_compras: (cliente.num_compras || 0) + 1,
-          ultima_compra: new Date(),
-          pontos: (cliente.pontos || 0) + Math.floor(total)
-        }).eq('id', cliente_id).eq('loja_id', req.user.loja_id);
-      }
-    }
-
-    // Movimentação financeira (só para pagamentos à vista)
-    if (forma_pagamento !== 'crediario') {
-      await supabase.from('movimentacoes').insert({
-        loja_id: req.user.loja_id,
-        tipo: 'entrada',
-        categoria: 'venda',
-        descricao: `Venda ${numero}`,
-        valor: total,
-        forma_pagamento,
-        referencia_id: venda.id
+    if (valorCreditoLoja > 0 && clienteAtual) {
+      const novoSaldoCredito = (clienteAtual.saldo_credito || 0) - valorCreditoLoja;
+      await supabase.from('clientes').update({ saldo_credito: novoSaldoCredito })
+        .eq('id', cliente_id).eq('loja_id', req.user.loja_id);
+      await supabase.from('credito_historico').insert({
+        loja_id: req.user.loja_id, cliente_id, tipo: 'debito',
+        valor: valorCreditoLoja, origem: 'venda', referencia_id: venda.id,
+        saldo_apos: novoSaldoCredito
       });
     }
 
-    // Cria registro de crediário
-    if (forma_pagamento === 'crediario' && cliente_id) {
+    if (cliente_id && clienteAtual) {
+      await supabase.from('clientes').update({
+        total_compras: (clienteAtual.total_compras || 0) + total,
+        num_compras: (clienteAtual.num_compras || 0) + 1,
+        ultima_compra: new Date(),
+        pontos: (clienteAtual.pontos || 0) + Math.floor(total)
+      }).eq('id', cliente_id).eq('loja_id', req.user.loja_id);
+    }
+
+    for (const p of linhasPagamento) {
+      if (p.forma_pagamento !== 'crediario' && p.forma_pagamento !== 'credito_loja') {
+        await supabase.from('movimentacoes').insert({
+          loja_id: req.user.loja_id, tipo: 'entrada', categoria: 'venda',
+          descricao: `Venda ${numero}`, valor: p.valor,
+          forma_pagamento: p.forma_pagamento, referencia_id: venda.id
+        });
+      }
+    }
+
+    if (temCrediario && cliente_id) {
+      const valorCrediario = usaPagamentoDividido
+        ? pagamentos.filter(p => p.forma_pagamento === 'crediario').reduce((s, p) => s + Number(p.valor || 0), 0)
+        : total;
+
       const vencimento = new Date();
       vencimento.setDate(vencimento.getDate() + 30);
 
@@ -215,9 +248,9 @@ router.post('/', verificarPermissao('pdv'), async (req, res) => {
         loja_id: req.user.loja_id,
         cliente_id,
         venda_id: venda.id,
-        total,
+        total: valorCrediario,
         pago: 0,
-        saldo: total,
+        saldo: valorCrediario,
         parcelas: parcelas || 1,
         parcelas_pagas: 0,
         status: 'ativo',
@@ -234,8 +267,6 @@ router.post('/', verificarPermissao('pdv'), async (req, res) => {
 
 router.put('/:id/cancelar', verificarPermissao(['pdv', 'vendas']), async (req, res) => {
   try {
-    // SEMPRE filtra por loja_id — sem isso, qualquer usuário logado
-    // conseguiria cancelar a venda de qualquer outra loja do sistema.
     const { data: venda } = await supabase.from('vendas')
       .select('*, venda_itens(*)')
       .eq('id', req.params.id).eq('loja_id', req.user.loja_id).single();
@@ -251,6 +282,40 @@ router.put('/:id/cancelar', verificarPermissao(['pdv', 'vendas']), async (req, r
         if (v) await supabase.from('variacoes').update({ estoque: v.estoque + item.quantidade }).eq('id', item.variacao_id);
       }
     }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /api/vendas/:id/corrigir-pagamento
+ * Corrige a forma de pagamento de uma venda já finalizada, sem cancelar
+ * tudo. Só troca o rótulo — não recalcula estoque nem valores. Toda
+ * correção fica registrada em vendas_correcoes pra auditoria.
+ */
+router.put('/:id/corrigir-pagamento', verificarPermissao(['pdv', 'vendas']), async (req, res) => {
+  try {
+    const { forma_pagamento_nova, motivo } = req.body;
+    if (!forma_pagamento_nova) return res.status(400).json({ error: 'Informe a nova forma de pagamento' });
+
+    const { data: venda } = await supabase.from('vendas')
+      .select('id, forma_pagamento, status')
+      .eq('id', req.params.id).eq('loja_id', req.user.loja_id).single();
+    if (!venda) return res.status(404).json({ error: 'Venda não encontrada' });
+    if (venda.status === 'cancelada') return res.status(400).json({ error: 'Venda cancelada não pode ser corrigida' });
+
+    await supabase.from('vendas').update({ forma_pagamento: forma_pagamento_nova })
+      .eq('id', req.params.id).eq('loja_id', req.user.loja_id);
+
+    await supabase.from('vendas_correcoes').insert({
+      venda_id: req.params.id,
+      usuario_id: req.user.id,
+      forma_pagamento_antiga: venda.forma_pagamento,
+      forma_pagamento_nova,
+      motivo: motivo || null
+    });
 
     res.json({ success: true });
   } catch (err) {
