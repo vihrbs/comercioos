@@ -33,7 +33,7 @@ router.get('/dashboard', verificarPermissao('dashboard'), async (req, res) => {
       .select('*', { count: 'exact', head: true }).eq('loja_id', loja_id).eq('ativo', true);
 
     const { data: ultimasVendas } = await supabase.from('vendas')
-      .select('numero, total, forma_pagamento, criado_em, clientes(nome)')
+      .select('id, numero, total, forma_pagamento, criado_em, clientes(nome)')
       .eq('loja_id', loja_id).eq('status', 'finalizada')
       .order('criado_em', { ascending: false }).limit(5);
 
