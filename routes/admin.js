@@ -97,4 +97,39 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// GET /api/admin/alertas — resumo do que precisa de atenção: trials
+// acabando nos próximos 7 dias, e lojas já bloqueadas
+router.get('/alertas', async (req, res) => {
+  try {
+    const em7dias = new Date(Date.now() + 7 * 86400000).toISOString();
+    const { data: expirandoEmBreve } = await supabase.from('lojas')
+      .select('id, nome, trial_expires_at, telefone')
+      .eq('status', 'trial').lte('trial_expires_at', em7dias)
+      .order('trial_expires_at', { ascending: true });
+
+    const { data: bloqueadas } = await supabase.from('lojas')
+      .select('id, nome, telefone, trial_expires_at')
+      .eq('status', 'bloqueado').order('criado_em', { ascending: false }).limit(20);
+
+    res.json({
+      expirando_em_breve: expirandoEmBreve || [],
+      bloqueadas: bloqueadas || []
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/pagamentos-recentes — últimos pagamentos aprovados em
+// qualquer loja da plataforma (visão de receita entrando)
+router.get('/pagamentos-recentes', async (req, res) => {
+  try {
+    const { data } = await supabase.from('pagamentos')
+      .select('*, lojas(nome)').order('pago_em', { ascending: false }).limit(20);
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
