@@ -17,6 +17,11 @@ router.get('/dashboard', verificarPermissao('dashboard'), async (req, res) => {
       .select('total').eq('loja_id', loja_id).eq('status', 'finalizada')
       .gte('criado_em', hoje).lte('criado_em', hoje + 'T23:59:59');
 
+    const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const { data: vendasOntem } = await supabase.from('vendas')
+      .select('total').eq('loja_id', loja_id).eq('status', 'finalizada')
+      .gte('criado_em', ontem).lte('criado_em', ontem + 'T23:59:59');
+
     const { data: vendasMes } = await supabase.from('vendas')
       .select('total, forma_pagamento').eq('loja_id', loja_id).eq('status', 'finalizada')
       .gte('criado_em', inicioMes);
@@ -52,11 +57,14 @@ router.get('/dashboard', verificarPermissao('dashboard'), async (req, res) => {
     });
 
     const totalHoje = (vendasHoje || []).reduce((s, v) => s + v.total, 0);
+    const totalOntem = (vendasOntem || []).reduce((s, v) => s + v.total, 0);
     const totalMes = (vendasMes || []).reduce((s, v) => s + v.total, 0);
     const numVendasHoje = vendasHoje?.length || 0;
+    const variacaoPct = totalOntem > 0 ? (((totalHoje - totalOntem) / totalOntem) * 100) : (totalHoje > 0 ? 100 : 0);
 
     res.json({
       hoje: { total: totalHoje, num_vendas: numVendasHoje, ticket_medio: numVendasHoje ? totalHoje / numVendasHoje : 0 },
+      ontem: { total: totalOntem, num_vendas: vendasOntem?.length || 0, variacao_pct: Number(variacaoPct.toFixed(1)) },
       mes: { total: totalMes, num_vendas: vendasMes?.length || 0, por_pagamento: pagamentos },
       totais: { clientes: totalClientes || 0, produtos: totalProdutos || 0 },
       ultimas_vendas: ultimasVendas || [],
