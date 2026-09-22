@@ -1115,16 +1115,18 @@ function startApp() {
 
 async function carregarDadosBase() {
   try {
-    const [cats, prods, clis, funcs] = await Promise.allSettled([
+    const [cats, prods, clis, funcs, caixa] = await Promise.allSettled([
       api('GET', '/api/categorias'),
       api('GET', '/api/produtos?limit=500'),
       api('GET', '/api/clientes?limit=500'),
-      api('GET', '/api/operacoes/funcionarios')
+      api('GET', '/api/operacoes/funcionarios'),
+      api('GET', '/api/operacoes/caixa/atual')
     ]);
     if (cats.status === 'fulfilled') STATE.categorias = Array.isArray(cats.value) ? cats.value : [];
     if (prods.status === 'fulfilled') STATE.produtos = prods.value?.data || (Array.isArray(prods.value) ? prods.value : []);
     if (clis.status === 'fulfilled') STATE.clientes = clis.value?.data || (Array.isArray(clis.value) ? clis.value : []);
     if (funcs.status === 'fulfilled') STATE.funcionarios = Array.isArray(funcs.value) ? funcs.value : [];
+    if (caixa.status === 'fulfilled' && caixa.value) { STATE.caixaAtual = caixa.value; updateSidebar(); }
     // Recarrega página atual se estiver em produtos/estoque/clientes/PDV
     const pg = STATE.currentPage;
     if (['produtos','estoque','clientes','pdv'].includes(pg)) {
@@ -1142,8 +1144,11 @@ function updateSidebar() {
   document.getElementById('sidebar-user-name').textContent = u?.nome || '';
   document.getElementById('sidebar-user-role').textContent = u?.perfil || '';
   document.getElementById('sidebar-avatar').textContent = (u?.nome || 'U')[0].toUpperCase();
-  if (STATE.caixaAtual?.status === 'aberto') {
-    document.getElementById('caixa-status').innerHTML = `<span class="badge badge-green">🟢 Caixa aberto</span>`;
+  const caixaStatusEl = document.getElementById('caixa-status');
+  if (caixaStatusEl) {
+    caixaStatusEl.innerHTML = STATE.caixaAtual?.status === 'aberto'
+      ? `<span class="badge badge-green">🟢 Caixa aberto</span>`
+      : '';
   }
 }
 
@@ -1215,14 +1220,28 @@ async function renderDashboard() {
       <span>${pagsLabel[k]||k}</span><span class="font-bold">${fmtR(v)}</span>
     </div>`).join('');
 
+  const variacao = data.ontem?.variacao_pct || 0;
+  const subiu = variacao >= 0;
+  const resumoTexto = data.hoje?.num_vendas === 0
+    ? 'Você ainda não vendeu nada hoje.'
+    : `Hoje você já vendeu <strong>${fmtR(data.hoje?.total)}</strong> em <strong>${data.hoje?.num_vendas}</strong> ${data.hoje?.num_vendas === 1 ? 'venda' : 'vendas'}` +
+      (data.ontem?.total > 0 ? `, ${subiu ? 'um crescimento' : 'uma queda'} de <strong>${Math.abs(variacao)}%</strong> em relação a ontem (${fmtR(data.ontem.total)}).` : '.');
+
   setContent(`
+    <div class="card mb-4" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));border:none">
+      <div class="flex items-center gap-3">
+        <span style="font-size:32px">${data.hoje?.num_vendas === 0 ? '👋' : subiu ? '📈' : '📉'}</span>
+        <p style="color:white;font-size:15px;line-height:1.5;margin:0">${resumoTexto}</p>
+      </div>
+    </div>
+
     <div class="grid grid-4 mb-4">
       <div class="stat-card">
         <div class="stat-icon" style="background:#e0e7ff">📈</div>
         <div>
           <div class="stat-label">Vendas Hoje</div>
           <div class="stat-value">${fmtR(data.hoje?.total)}</div>
-          <div class="stat-change stat-up">${data.hoje?.num_vendas} transações</div>
+          <div class="stat-change ${subiu ? 'stat-up' : 'stat-down'}">${data.hoje?.num_vendas} transações ${data.ontem?.total > 0 ? (subiu ? `▲ ${variacao}%` : `▼ ${Math.abs(variacao)}%`) : ''}</div>
         </div>
       </div>
       <div class="stat-card">
@@ -1409,6 +1428,7 @@ async function renderPDV() {
               <option value="">— Consumidor —</option>
               ${STATE.clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}
             </select>
+            <button class="btn btn-outline btn-sm" onclick="modalClienteRapido()" title="Cadastrar cliente novo">+ Novo</button>
           </div>
           <div class="flex items-center gap-2 mt-2">
             <span style="font-size:13px;color:var(--text-muted)">👗 Vendedor:</span>
@@ -1601,6 +1621,44 @@ function setCartCliente(id) {
     STATE.cartPagamentos.forEach(p => { if (p.forma_pagamento === 'credito_loja') p.forma_pagamento = 'dinheiro'; });
   }
   renderPagamentoRows();
+}
+
+// ---- Cadastro rápido de cliente, direto na venda (nome + telefone) ----
+function modalClienteRapido() {
+  openModal('👤 Novo Cliente Rápido', `
+    <p class="text-xs text-muted mb-3">Só nome e telefone já ajuda bastante — dá pra completar o cadastro depois em Clientes. O telefone também facilita achar essa venda numa troca futura.</p>
+    <div class="form-group"><label>Nome *</label><input type="text" id="cli-rapido-nome" placeholder="Nome do cliente" autofocus></div>
+    <div class="form-group"><label>Telefone</label><input type="text" id="cli-rapido-tel" placeholder="(11) 99999-9999"></div>
+  `, `
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="confirmarClienteRapido()">Cadastrar e usar</button>
+  `, 'modal-sm');
+}
+
+async function confirmarClienteRapido() {
+  const nome = (document.getElementById('cli-rapido-nome').value || '').trim();
+  const telefone = (document.getElementById('cli-rapido-tel').value || '').trim();
+  if (!nome) return toast('Digite o nome do cliente', 'error');
+
+  try {
+    const novoCliente = await api('POST', '/api/clientes', { nome, telefone: telefone || null });
+    STATE.clientes.push(novoCliente);
+    closeModal();
+    toast(`${nome} cadastrado!`, 'success');
+
+    // Já seleciona esse cliente no PDV, se a tela estiver aberta
+    const sel = document.getElementById('cart-cliente');
+    if (sel) {
+      const opt = document.createElement('option');
+      opt.value = novoCliente.id;
+      opt.textContent = novoCliente.nome;
+      sel.appendChild(opt);
+      sel.value = novoCliente.id;
+      setCartCliente(novoCliente.id);
+    }
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
 // ---- Pagamento dividido ----
@@ -2523,40 +2581,75 @@ async function renderTrocas() {
   `);
 }
 
-function modalNovaTroca(numeroPreenchido) {
+async function modalNovaTroca(numeroPreenchido) {
   window._troca = { venda: null, itensDevolvidos: {}, tipo: 'credito', itensNovos: [] };
+  window._trocaVendasCache = [];
+
   openModal('🔄 Nova Troca — Buscar Venda', `
     <div class="form-group">
-      <label>Número da venda (ex: V-00012)</label>
-      <input type="text" id="troca-busca-numero" placeholder="V-00012" value="${numeroPreenchido || ''}" onkeydown="if(event.key==='Enter')buscarVendaParaTroca()">
+      <label>Buscar por número da venda ou nome do cliente</label>
+      <input type="text" id="troca-busca-numero" placeholder="Ex: V-00012 ou nome do cliente" value="${numeroPreenchido || ''}" oninput="filtrarVendasTroca()" autofocus>
     </div>
-    <div id="troca-busca-resultado"></div>
+    <div id="troca-busca-resultado" class="mt-2" style="max-height:320px;overflow-y:auto"></div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-primary" onclick="buscarVendaParaTroca()">Buscar</button>
   `, 'modal-md');
-}
 
-async function buscarVendaParaTroca() {
-  const numero = (document.getElementById('troca-busca-numero').value || '').trim();
-  if (!numero) return toast('Digite o número da venda', 'error');
-
-  const resEl = document.getElementById('troca-busca-resultado');
-  resEl.innerHTML = '<p class="text-sm text-muted mt-2">Buscando...</p>';
+  document.getElementById('troca-busca-resultado').innerHTML = '<p class="text-sm text-muted">Carregando vendas recentes...</p>';
 
   try {
-    const r = await api('GET', '/api/vendas?limit=500');
-    const lista = r?.data || (Array.isArray(r) ? r : []);
-    const encontrada = lista.find(v => v.numero.toLowerCase() === numero.toLowerCase());
-    if (!encontrada) {
-      resEl.innerHTML = '<p class="text-sm" style="color:var(--danger)" >Venda não encontrada</p>';
-      return;
-    }
-    const vendaCompleta = await api('GET', `/api/vendas/${encontrada.id}`);
+    const r = await api('GET', '/api/vendas?limit=200');
+    window._trocaVendasCache = r?.data || (Array.isArray(r) ? r : []);
+    filtrarVendasTroca();
+  } catch (e) {
+    document.getElementById('troca-busca-resultado').innerHTML = `<p class="text-sm" style="color:var(--danger)">${e.message}</p>`;
+  }
+}
+
+function filtrarVendasTroca() {
+  const q = (document.getElementById('troca-busca-numero')?.value || '').toLowerCase().trim();
+  let lista = window._trocaVendasCache.filter(v => v.status !== 'cancelada');
+
+  if (q) {
+    lista = lista.filter(v =>
+      v.numero.toLowerCase().includes(q) ||
+      (v.clientes?.nome || '').toLowerCase().includes(q)
+    );
+  }
+  lista = lista.slice(0, 15); // mostra os 15 mais recentes/relevantes, evita lista gigante
+
+  const fmtR = val => `R$ ${(val||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+  const resEl = document.getElementById('troca-busca-resultado');
+
+  if (lista.length === 0) {
+    resEl.innerHTML = '<p class="text-sm text-muted">Nenhuma venda encontrada</p>';
+    return;
+  }
+
+  resEl.innerHTML = lista.map(v => `
+    <div onclick="selecionarVendaTroca('${v.id}')" style="cursor:pointer;padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;transition:all .15s"
+      onmouseover="this.style.borderColor='var(--primary)';this.style.background='var(--primary-light)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.background='transparent'">
+      <div class="flex items-center justify-between">
+        <span class="font-bold">${v.numero}</span>
+        <span class="font-bold">${fmtR(v.total)}</span>
+      </div>
+      <div class="flex items-center justify-between text-xs text-muted mt-1">
+        <span>${v.clientes?.nome || 'Consumidor'}</span>
+        <span>${new Date(v.criado_em).toLocaleDateString('pt-BR')} às ${new Date(v.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function selecionarVendaTroca(vendaId) {
+  document.getElementById('troca-busca-resultado').innerHTML = '<p class="text-sm text-muted">Abrindo venda...</p>';
+  try {
+    const vendaCompleta = await api('GET', `/api/vendas/${vendaId}`);
     window._troca.venda = vendaCompleta;
     renderStep2SelecionarItens();
   } catch (e) {
-    resEl.innerHTML = `<p class="text-sm" style="color:var(--danger)">${e.message}</p>`;
+    toast('Erro ao abrir venda: ' + e.message, 'error');
   }
 }
 
@@ -2918,84 +3011,106 @@ function renderComissoes() {
 // ============================================================
 //  FINANCEIRO
 // ============================================================
-function renderFinanceiro() {
+async function renderFinanceiro() {
+  loading();
+  let caixa = null, movimentacoes = [];
+  try {
+    const [caixaR, movsR] = await Promise.all([
+      api('GET', '/api/operacoes/caixa/atual'),
+      api('GET', '/api/operacoes/movimentacoes?limit=100')
+    ]);
+    caixa = caixaR;
+    movimentacoes = movsR?.data || (Array.isArray(movsR) ? movsR : []);
+  } catch (e) {
+    setContent(`<div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p><button class="btn btn-primary" onclick="renderFinanceiro()">Tentar novamente</button></div>`);
+    return;
+  }
+  window._financeiroMovs = movimentacoes;
+  window._caixaAtualReal = caixa;
+  STATE.caixaAtual = caixa;
+  updateSidebar();
+
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
-  const entradas = STATE.movimentacoes.filter(m => m.tipo === 'entrada').reduce((s, m) => s + m.valor, 0);
-  const saidas = STATE.movimentacoes.filter(m => m.tipo === 'saida').reduce((s, m) => s + m.valor, 0);
-  const saldo = entradas - saidas;
-  const cx = STATE.caixaAtual;
+  const movsDoCaixa = caixa ? movimentacoes.filter(m => m.caixa_id === caixa.id) : movimentacoes;
+
+  // Dinheiro físico é só o que entrou/saiu EM ESPÉCIE — pix, débito e
+  // crédito não ficam na gaveta, caem direto na conta/maquininha.
+  const entradasDinheiro = movsDoCaixa.filter(m => m.tipo === 'entrada' && m.forma_pagamento === 'dinheiro').reduce((s, m) => s + m.valor, 0);
+  const saidasDinheiro = movsDoCaixa.filter(m => m.tipo === 'saida' && m.forma_pagamento === 'dinheiro').reduce((s, m) => s + m.valor, 0);
+  const dinheiroEsperadoNaGaveta = (caixa?.saldo_inicial || 0) + entradasDinheiro - saidasDinheiro;
+
+  const totalVendasHoje = movsDoCaixa.filter(m => m.tipo === 'entrada' && m.categoria === 'venda').reduce((s, m) => s + m.valor, 0);
+  const porFormaPagamento = {};
+  movsDoCaixa.filter(m => m.tipo === 'entrada').forEach(m => {
+    porFormaPagamento[m.forma_pagamento] = (porFormaPagamento[m.forma_pagamento] || 0) + m.valor;
+  });
 
   setContent(`
+    <div class="card mb-4" style="background:${caixa ? 'linear-gradient(135deg,var(--primary),var(--primary-dark))' : 'var(--surface)'};${caixa?'border:none':''}">
+      ${caixa ? `
+        <div class="flex items-center justify-between mb-3">
+          <span style="color:white;font-weight:700;font-size:16px">🧾 Caixa aberto desde ${new Date(caixa.aberto_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>
+          <span class="badge badge-green">Aberto</span>
+        </div>
+        <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:16px;margin-bottom:12px">
+          <p style="color:white;font-size:14px;line-height:1.6;margin:0">
+            Você abriu com <strong>${fmtR(caixa.saldo_inicial)}</strong> em dinheiro.
+            Entrou <strong>${fmtR(entradasDinheiro)}</strong> em espécie e saiu <strong>${fmtR(saidasDinheiro)}</strong> (sangrias/despesas).
+            <br>💰 <strong>Deveria ter ${fmtR(dinheiroEsperadoNaGaveta)} na gaveta agora.</strong>
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-outline" style="background:white" onclick="openSangria('${caixa.id}')">💸 Sangria</button>
+          <button class="btn btn-danger" onclick="fecharCaixa('${caixa.id}', ${dinheiroEsperadoNaGaveta})">🔒 Fechar Caixa</button>
+        </div>
+      ` : `
+        <div style="text-align:center;padding:20px">
+          <div style="font-size:40px;margin-bottom:8px">🔓</div>
+          <p class="text-muted mb-3">Nenhum caixa aberto agora. Abra pra começar a vender e registrar o dinheiro do dia.</p>
+          <button class="btn btn-success" onclick="abrirCaixa()">Abrir Caixa</button>
+        </div>
+      `}
+    </div>
+
     <div class="grid grid-3 mb-4">
       <div class="stat-card">
-        <div class="stat-icon" style="background:#d1fae5">💚</div>
-        <div><div class="stat-label">Total Entradas</div><div class="stat-value">${fmtR(entradas)}</div></div>
+        <div class="stat-icon" style="background:#d1fae5">🛒</div>
+        <div><div class="stat-label">Vendas (caixa atual)</div><div class="stat-value">${fmtR(totalVendasHoje)}</div></div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#fee2e2">❌</div>
-        <div><div class="stat-label">Total Saídas</div><div class="stat-value">${fmtR(saidas)}</div></div>
+        <div class="stat-icon" style="background:#e0e7ff">💵</div>
+        <div><div class="stat-label">Dinheiro na gaveta</div><div class="stat-value">${fmtR(dinheiroEsperadoNaGaveta)}</div></div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#e0e7ff">💰</div>
-        <div><div class="stat-label">Saldo</div><div class="stat-value" style="color:${saldo>=0?'var(--success)':'var(--danger)'}">${fmtR(saldo)}</div></div>
+        <div class="stat-icon" style="background:#fef3c7">📊</div>
+        <div><div class="stat-label">Formas de pagamento</div><div class="stat-value" style="font-size:14px">${Object.keys(porFormaPagamento).length} tipos usados</div></div>
       </div>
     </div>
 
-    <div class="grid grid-2 mb-4">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">💳 Status do Caixa</span>
-          ${cx?.status === 'aberto' ? '<span class="badge badge-green">Aberto</span>' : '<span class="badge badge-red">Fechado</span>'}
-        </div>
-        ${cx ? `
-          <div class="total-row"><span>Saldo Inicial</span><span>${fmtR(cx.saldo_inicial)}</span></div>
-          <div class="total-row"><span>Total Vendas</span><span>${fmtR(cx.total_vendas)}</span></div>
-          <div class="total-row big mt-2"><span>Saldo Atual</span><span>${fmtR((cx.saldo_inicial||0)+(cx.total_vendas||0))}</span></div>
-          <div class="flex gap-2 mt-3">
-            <button class="btn btn-warning btn-sm" onclick="openSangria()">Sangria</button>
-            <button class="btn btn-danger btn-sm" onclick="fecharCaixa()">Fechar Caixa</button>
-          </div>` :
-          `<div class="empty-state" style="padding:20px">
-            <p class="text-muted mb-2">Nenhum caixa aberto</p>
-            <button class="btn btn-success" onclick="abrirCaixa()">Abrir Caixa</button>
-          </div>`}
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">📊 Pagamentos por forma</span>
-        </div>
-        ${['dinheiro','pix','debito','credito','crediario'].map(p => {
-          const total = STATE.movimentacoes.filter(m => m.tipo==='entrada' && m.forma_pagamento===p).reduce((s,m)=>s+m.valor,0);
-          const pct = entradas > 0 ? (total/entradas*100).toFixed(0) : 0;
-          return total > 0 ? `
-            <div class="mb-2">
-              <div class="flex justify-between text-sm mb-1">
-                <span>${{dinheiro:'💵 Dinheiro',pix:'⚡ PIX',debito:'💳 Débito',credito:'💰 Crédito',crediario:'📅 Crediário'}[p]}</span>
-                <span class="font-bold">${fmtR(total)} <span class="text-muted">(${pct}%)</span></span>
-              </div>
-              <div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div>
-            </div>` : '';
+    <div class="card mb-4">
+      <div class="card-header"><span class="card-title">📊 Quanto entrou em cada forma de pagamento</span></div>
+      ${Object.keys(porFormaPagamento).length === 0 ? '<p class="text-sm text-muted">Nenhuma entrada registrada nesse caixa ainda</p>' :
+        Object.entries(porFormaPagamento).map(([k,v]) => {
+          const labels = { dinheiro:'💵 Dinheiro (fica na gaveta)', pix:'⚡ PIX (cai na conta)', debito:'💳 Débito (cai na conta)', credito:'💰 Crédito (cai na conta)', crediario:'📅 Crediário (a receber depois)', credito_loja:'🎁 Crédito de loja usado' };
+          return `<div class="total-row"><span>${labels[k]||k}</span><span class="font-bold">${fmtR(v)}</span></div>`;
         }).join('')}
-      </div>
     </div>
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">📋 Movimentações</span>
-        <button class="btn btn-primary btn-sm" onclick="openMovimentacaoModal()">+ Lançar</button>
+        <span class="card-title">📋 Lançamentos manuais</span>
+        <button class="btn btn-primary btn-sm" onclick="openMovimentacaoModal('${caixa?.id||''}')">+ Lançar despesa/entrada</button>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Forma</th><th>Valor</th></tr></thead>
+          <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Forma</th><th>Valor</th></tr></thead>
           <tbody>
-            ${STATE.movimentacoes.map(m => `<tr>
-              <td class="text-sm text-muted">${new Date(m.criado_em).toLocaleDateString('pt-BR')}</td>
-              <td><span class="badge ${m.tipo==='entrada'?'badge-green':'badge-red'}">${m.tipo}</span></td>
-              <td class="text-sm">${m.categoria||'—'}</td>
+            ${movimentacoes.length === 0 ? '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">Nenhuma movimentação ainda</td></tr>' : movimentacoes.slice(0,30).map(m => `<tr>
+              <td class="text-sm text-muted">${new Date(m.criado_em).toLocaleDateString('pt-BR')} ${new Date(m.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td>
+              <td><span class="badge ${m.tipo==='entrada'?'badge-green':'badge-red'}">${m.tipo==='entrada'?'Entrada':'Saída'}</span></td>
               <td>${m.descricao}</td>
               <td>${pagBadge(m.forma_pagamento)}</td>
-              <td class="font-bold" style="color:${m.tipo==='entrada'?'var(--success)':'var(--danger)'}">${m.tipo==='entrada'?'+':'−'}${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(m.valor)}</td>
+              <td class="font-bold" style="color:${m.tipo==='entrada'?'var(--success)':'var(--danger)'}">${m.tipo==='entrada'?'+':'−'}${fmtR(m.valor)}</td>
             </tr>`).join('')}
           </tbody>
         </table>
@@ -3006,71 +3121,132 @@ function renderFinanceiro() {
 
 function abrirCaixa() {
   openModal('Abrir Caixa', `
-    <div class="form-group"><label>Saldo Inicial (R$)</label><input type="number" id="caixa-inicial" value="200" min="0" step="0.01"></div>
+    <p class="text-sm text-muted mb-3">Conte o dinheiro físico que está colocando na gaveta agora:</p>
+    <div class="form-group"><label>Saldo Inicial (R$)</label><input type="number" id="caixa-inicial" value="0" min="0" step="0.01"></div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     <button class="btn btn-success" onclick="confirmarAbrirCaixa()">Abrir Caixa</button>
   `, 'modal-sm');
 }
 
-function confirmarAbrirCaixa() {
-  const saldo = parseFloat(document.getElementById('caixa-inicial').value || 0);
-  STATE.caixaAtual = { id: 'cx' + Date.now(), status: 'aberto', saldo_inicial: saldo, aberto_em: new Date().toISOString(), total_vendas: 0, funcionarios: { nome: STATE.user.nome } };
-  closeModal(); toast('Caixa aberto!', 'success'); renderFinanceiro();
+async function confirmarAbrirCaixa() {
+  const saldo_inicial = parseFloat(document.getElementById('caixa-inicial').value || 0);
+  try {
+    await api('POST', '/api/operacoes/caixa/abrir', { saldo_inicial, funcionario_id: null });
+    toast('Caixa aberto!', 'success');
+    closeModal();
+    renderFinanceiro();
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
-function fecharCaixa() {
-  toast('Caixa fechado com sucesso!', 'success');
-  STATE.caixaAtual = null; renderFinanceiro();
+function fecharCaixa(caixaId, valorEsperado) {
+  openModal('🔒 Fechar Caixa', `
+    <p class="text-sm text-muted mb-3">Conte o dinheiro físico que está na gaveta agora.</p>
+    <div style="background:var(--bg);padding:12px;border-radius:8px;margin-bottom:14px;text-align:center">
+      <div class="text-xs text-muted">O sistema calculou que deveria ter</div>
+      <div style="font-size:22px;font-weight:800;color:var(--primary)">R$ ${valorEsperado.toFixed(2).replace('.',',')}</div>
+    </div>
+    <div class="form-group">
+      <label>Quanto tem de verdade na gaveta? (R$)</label>
+      <input type="number" id="caixa-saldo-final" value="${valorEsperado.toFixed(2)}" min="0" step="0.01" oninput="mostrarDiferencaFechamento(${valorEsperado})">
+    </div>
+    <p id="diferenca-fechamento" class="text-sm mt-2"></p>
+    <div class="form-group mt-2"><label>Observações (opcional)</label><input type="text" id="caixa-obs-fechamento" placeholder="Ex: sobrou R$5, deu tudo certo..."></div>
+  `, `
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-danger" onclick="confirmarFecharCaixa('${caixaId}')">Confirmar Fechamento</button>
+  `, 'modal-sm');
 }
 
-function openSangria() {
+function mostrarDiferencaFechamento(esperado) {
+  const informado = parseFloat(document.getElementById('caixa-saldo-final').value || 0);
+  const dif = informado - esperado;
+  const el = document.getElementById('diferenca-fechamento');
+  if (Math.abs(dif) < 0.01) el.innerHTML = '<span style="color:var(--success)">✓ Bateu certinho!</span>';
+  else if (dif > 0) el.innerHTML = `<span style="color:var(--warning)">Sobrou R$ ${dif.toFixed(2).replace('.',',')}</span>`;
+  else el.innerHTML = `<span style="color:var(--danger)">Faltou R$ ${Math.abs(dif).toFixed(2).replace('.',',')}</span>`;
+}
+
+async function confirmarFecharCaixa(caixaId) {
+  const saldo_final = parseFloat(document.getElementById('caixa-saldo-final').value || 0);
+  const observacoes = document.getElementById('caixa-obs-fechamento').value;
+  try {
+    await api('POST', '/api/operacoes/caixa/fechar', { caixa_id: caixaId, saldo_final, observacoes });
+    toast('Caixa fechado com sucesso!', 'success');
+    closeModal();
+    renderFinanceiro();
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+}
+
+function openSangria(caixaId) {
   openModal('💸 Sangria de Caixa', `
+    <p class="text-xs text-muted mb-3">Sangria é quando você retira dinheiro da gaveta pra guardar em outro lugar (ex: levar pro banco, pagar algo em espécie).</p>
     <div class="form-group"><label>Valor (R$)</label><input type="number" id="sangria-val" min="0" step="0.01" placeholder="0.00"></div>
     <div class="form-group"><label>Motivo</label><input type="text" id="sangria-desc" placeholder="Ex: Pagamento fornecedor..."></div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-warning" onclick="confirmarSangria()">Confirmar</button>
+    <button class="btn btn-warning" onclick="confirmarSangria('${caixaId}')">Confirmar</button>
   `, 'modal-sm');
 }
 
-function confirmarSangria() {
-  const val = parseFloat(document.getElementById('sangria-val').value || 0);
-  const desc = document.getElementById('sangria-desc').value;
-  if (val <= 0) return toast('Informe o valor', 'error');
-  STATE.movimentacoes.unshift({ id: 'm'+Date.now(), tipo: 'saida', categoria: 'sangria', descricao: desc || 'Sangria', valor: val, forma_pagamento: 'dinheiro', criado_em: new Date().toISOString() });
-  closeModal(); toast('Sangria registrada!', 'success'); renderFinanceiro();
+async function confirmarSangria(caixaId) {
+  const valor = parseFloat(document.getElementById('sangria-val').value || 0);
+  const descricao = document.getElementById('sangria-desc').value;
+  if (valor <= 0) return toast('Informe o valor', 'error');
+  try {
+    await api('POST', '/api/operacoes/caixa/sangria', { caixa_id: caixaId, valor, descricao });
+    toast('Sangria registrada!', 'success');
+    closeModal();
+    renderFinanceiro();
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
-function openMovimentacaoModal() {
+function openMovimentacaoModal(caixaId) {
   openModal('Novo Lançamento', `
     <div class="form-group">
       <label>Tipo</label>
-      <select id="mov-tipo"><option value="entrada">Entrada</option><option value="saida">Saída</option></select>
+      <select id="mov-tipo"><option value="entrada">Entrada (dinheiro que chegou)</option><option value="saida">Saída (despesa/pagamento)</option></select>
     </div>
     <div class="form-group"><label>Descrição *</label><input type="text" id="mov-desc" placeholder="Ex: Aluguel, compra de mercadoria..."></div>
     <div class="form-row">
       <div class="form-group"><label>Valor (R$) *</label><input type="number" id="mov-valor" min="0" step="0.01"></div>
-      <div class="form-group"><label>Categoria</label><input type="text" id="mov-cat" placeholder="Ex: despesa, suprimento..."></div>
+      <div class="form-group"><label>Forma de pagamento</label><select id="mov-forma">
+        <option value="dinheiro">💵 Dinheiro</option><option value="pix">⚡ PIX</option>
+        <option value="debito">💳 Débito</option><option value="credito">💰 Crédito</option>
+      </select></div>
     </div>
+    <div class="form-group"><label>Categoria (opcional)</label><input type="text" id="mov-cat" placeholder="Ex: despesa, suprimento..."></div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-primary" onclick="salvarMovimentacao()">💾 Salvar</button>
+    <button class="btn btn-primary" onclick="salvarMovimentacao('${caixaId||''}')">💾 Salvar</button>
   `);
 }
 
-function salvarMovimentacao() {
-  const desc = document.getElementById('mov-desc').value;
-  const val = parseFloat(document.getElementById('mov-valor').value || 0);
-  if (!desc || val <= 0) return toast('Preencha descrição e valor', 'error');
-  STATE.movimentacoes.unshift({
-    id: 'm'+Date.now(),
-    tipo: document.getElementById('mov-tipo').value,
-    categoria: document.getElementById('mov-cat').value,
-    descricao: desc, valor: val,
-    forma_pagamento: 'dinheiro', criado_em: new Date().toISOString()
-  });
-  closeModal(); toast('Lançamento registrado!', 'success'); renderFinanceiro();
+async function salvarMovimentacao(caixaId) {
+  const descricao = document.getElementById('mov-desc').value;
+  const valor = parseFloat(document.getElementById('mov-valor').value || 0);
+  if (!descricao || valor <= 0) return toast('Preencha descrição e valor', 'error');
+
+  try {
+    await api('POST', '/api/operacoes/movimentacoes', {
+      tipo: document.getElementById('mov-tipo').value,
+      categoria: document.getElementById('mov-cat').value || null,
+      descricao, valor,
+      forma_pagamento: document.getElementById('mov-forma').value,
+      caixa_id: caixaId || null
+    });
+    toast('Lançamento registrado!', 'success');
+    closeModal();
+    renderFinanceiro();
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
 // ============================================================
@@ -3197,6 +3373,7 @@ async function renderPedidos() {
     const d = await api('GET', '/api/pedidos');
     pedidos = Array.isArray(d) ? d : [];
   } catch(e) { console.warn(e); }
+  window._pedidosCache = pedidos;
   const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
   const stMap = { aberto:'badge-blue', em_separacao:'badge-yellow', pronto:'badge-green', entregue:'badge-gray', cancelado:'badge-red' };
   const stLabel = { aberto:'Aberto', em_separacao:'Em Separação', pronto:'Pronto', entregue:'Entregue', cancelado:'Cancelado' };
@@ -3209,11 +3386,12 @@ async function renderPedidos() {
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Nº</th><th>Cliente</th><th>Tipo</th><th>Total</th><th>Status</th><th>Data</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Nº</th><th>Cliente</th><th>Itens</th><th>Tipo</th><th>Total</th><th>Status</th><th>Data</th><th>Ações</th></tr></thead>
           <tbody>
-            ${pedidos.map(p => `<tr>
+            ${pedidos.length === 0 ? '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Nenhum pedido ainda</td></tr>' : pedidos.map(p => `<tr>
               <td class="font-bold">${p.numero}</td>
-              <td>${p.cliente}</td>
+              <td>${p.clientes?.nome || 'Consumidor'}</td>
+              <td class="text-sm text-muted">${(p.itens||[]).length} ${(p.itens||[]).length===1?'item':'itens'}</td>
               <td><span class="badge badge-purple">${p.tipo}</span></td>
               <td class="font-bold">${fmtR(p.total)}</td>
               <td><span class="badge ${stMap[p.status]}">${stLabel[p.status]}</span></td>
@@ -3232,6 +3410,7 @@ async function renderPedidos() {
 }
 
 function openPedidoModal() {
+  window._pedidoItens = [];
   openModal('Novo Pedido', `
     <div class="form-group"><label>Cliente</label><select id="ped-cli">
       <option value="">Consumidor</option>
@@ -3248,14 +3427,133 @@ function openPedidoModal() {
         ${STATE.funcionarios.map(f => `<option value="${f.id}">${f.nome}</option>`).join('')}
       </select></div>
     </div>
+
+    <div class="form-group">
+      <label>Produtos do pedido</label>
+      <input type="text" id="ped-busca-produto" placeholder="Buscar produto..." oninput="renderListaProdutosPedido()">
+      <div id="ped-lista-produtos" style="max-height:140px;overflow-y:auto;margin-top:6px"></div>
+    </div>
+    <div id="ped-itens-selecionados" class="mb-3"></div>
+
     <div class="form-group"><label>Observações</label><textarea id="ped-obs" rows="2" placeholder="Tamanhos desejados, prazo de retirada..."></textarea></div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-primary" onclick="closeModal();toast('Pedido criado!','success')">Criar Pedido</button>
-  `);
+    <button class="btn btn-primary" onclick="salvarPedido()">Criar Pedido</button>
+  `, 'modal-lg');
+
+  renderItensPedidoSelecionados();
 }
 
-function mudarStatusPedido(id, status) { toast('Status atualizado!', 'success'); }
+function renderListaProdutosPedido() {
+  const q = (document.getElementById('ped-busca-produto')?.value || '').toLowerCase();
+  const el = document.getElementById('ped-lista-produtos');
+  if (!q) { el.innerHTML = ''; return; }
+
+  const encontrados = STATE.produtos.filter(p => p.ativo && p.nome.toLowerCase().includes(q)).slice(0, 8);
+  el.innerHTML = encontrados.map(p => `
+    <div class="flex items-center justify-between" style="padding:6px 8px;border-bottom:1px solid var(--border)">
+      <span class="text-sm">${p.nome} <span class="text-muted">R$ ${p.preco_venda.toFixed(2).replace('.',',')}</span></span>
+      <button class="btn btn-outline btn-sm" onclick='abrirVariacoesPedido(${JSON.stringify(p.id)})'>Escolher</button>
+    </div>
+  `).join('') || '<p class="text-sm text-muted">Nenhum produto encontrado</p>';
+}
+
+function abrirVariacoesPedido(prodId) {
+  const prod = STATE.produtos.find(p => p.id === prodId);
+  if (!prod) return;
+  const variacoes = prod.variacoes || [];
+  document.getElementById('ped-lista-produtos').innerHTML = `
+    <p class="text-xs text-muted mb-2">Tamanho/cor de ${prod.nome}:</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">
+      ${variacoes.map(v => `
+        <button class="btn btn-outline btn-sm" onclick='adicionarItemPedido(${JSON.stringify(prod.id)},${JSON.stringify(v.id)},${JSON.stringify(prod.nome)},${prod.preco_venda},${JSON.stringify(v.tamanho)},${JSON.stringify(v.cor)})'>
+          ${v.tamanho||''} ${v.cor||''}
+        </button>
+      `).join('') || '<span class="text-xs text-muted">Sem variações cadastradas</span>'}
+    </div>
+  `;
+}
+
+function adicionarItemPedido(produto_id, variacao_id, nome, preco_venda, tamanho, cor) {
+  window._pedidoItens.push({ variacao_id, produto_id, nome_produto: nome, preco_unitario: preco_venda, tamanho, cor, quantidade: 1 });
+  document.getElementById('ped-busca-produto').value = '';
+  document.getElementById('ped-lista-produtos').innerHTML = '';
+  renderItensPedidoSelecionados();
+}
+
+function removerItemPedido(idx) {
+  window._pedidoItens.splice(idx, 1);
+  renderItensPedidoSelecionados();
+}
+
+function alterarQtdItemPedido(idx, delta) {
+  const item = window._pedidoItens[idx];
+  item.quantidade = Math.max(1, item.quantidade + delta);
+  renderItensPedidoSelecionados();
+}
+
+function renderItensPedidoSelecionados() {
+  const el = document.getElementById('ped-itens-selecionados');
+  if (!el) return;
+  const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+
+  if (window._pedidoItens.length === 0) {
+    el.innerHTML = '<p class="text-sm text-muted">Nenhum produto adicionado ainda</p>';
+    return;
+  }
+
+  const total = window._pedidoItens.reduce((s, i) => s + i.preco_unitario * i.quantidade, 0);
+  el.innerHTML = `
+    ${window._pedidoItens.map((item, idx) => `
+      <div class="flex items-center justify-between" style="padding:6px 8px;background:var(--bg);border-radius:8px;margin-bottom:4px">
+        <span class="text-sm">${item.nome_produto} ${[item.tamanho,item.cor].filter(Boolean).join(' • ')}</span>
+        <div class="flex items-center gap-2">
+          <button class="qty-btn" onclick="alterarQtdItemPedido(${idx},-1)">−</button>
+          <span class="text-sm font-bold">${item.quantidade}</span>
+          <button class="qty-btn" onclick="alterarQtdItemPedido(${idx},1)">+</button>
+          <span class="text-sm font-bold" style="min-width:70px;text-align:right">${fmtR(item.preco_unitario*item.quantidade)}</span>
+          <button onclick="removerItemPedido(${idx})" style="background:none;border:none;color:var(--danger);cursor:pointer">✕</button>
+        </div>
+      </div>
+    `).join('')}
+    <div class="total-row big mt-2"><span>Total</span><span>${fmtR(total)}</span></div>
+  `;
+}
+
+async function salvarPedido() {
+  const cliente_id = document.getElementById('ped-cli').value || null;
+  const funcionario_id = document.getElementById('ped-func').value || null;
+  const tipo = document.getElementById('ped-tipo').value;
+  const observacoes = document.getElementById('ped-obs').value;
+
+  if (window._pedidoItens.length === 0) return toast('Adicione ao menos um produto', 'error');
+
+  const total = window._pedidoItens.reduce((s, i) => s + i.preco_unitario * i.quantidade, 0);
+
+  try {
+    await api('POST', '/api/pedidos', {
+      cliente_id, funcionario_id, tipo, observacoes,
+      itens: window._pedidoItens, total, status: 'aberto'
+    });
+    toast('Pedido criado!', 'success');
+    closeModal();
+    renderPedidos();
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+}
+
+async function mudarStatusPedido(id, status) {
+  try {
+    await api('PUT', `/api/pedidos/${id}`, { status });
+    const pedido = window._pedidosCache?.find(p => p.id === id);
+    if (pedido) pedido.status = status;
+    toast('Status atualizado!', 'success');
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+    renderPedidos();
+  }
+}
 
 // ============================================================
 //  RELATÓRIOS
@@ -3493,13 +3791,19 @@ window._adminLojas = [];
 
 async function renderAdmin() {
   loading();
+  let alertas = { expirando_em_breve: [], bloqueadas: [] };
+  let pagamentosRecentes = [];
   try {
-    const [statsR, lojasR] = await Promise.all([
+    const [statsR, lojasR, alertasR, pagsR] = await Promise.all([
       api('GET', '/api/admin/stats'),
-      api('GET', '/api/admin/lojas?limit=100')
+      api('GET', '/api/admin/lojas?limit=100'),
+      api('GET', '/api/admin/alertas'),
+      api('GET', '/api/admin/pagamentos-recentes')
     ]);
     window._adminStats = statsR;
     window._adminLojas = lojasR?.data || [];
+    alertas = alertasR;
+    pagamentosRecentes = pagsR || [];
   } catch (e) {
     setContent(`<div class="empty-state"><div class="empty-icon">🛡️</div><p>${e.message}</p><button class="btn btn-primary" onclick="renderAdmin()">Tentar novamente</button></div>`);
     return;
@@ -3530,6 +3834,47 @@ async function renderAdmin() {
             ${Object.entries(s.por_status).map(([k,v]) => `<span class="badge ${k==='ativo'?'badge-green':k==='trial'?'badge-blue':'badge-red'}" style="margin-right:4px">${k}: ${v}</span>`).join('')}
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="grid grid-2 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⏰ Trials acabando (próximos 7 dias)</span>
+        </div>
+        ${alertas.expirando_em_breve.length === 0 ? '<p class="text-sm text-muted">Nenhum trial acabando essa semana</p>' :
+          alertas.expirando_em_breve.map(l => `
+            <div class="flex items-center justify-between mb-2" style="padding:8px;background:var(--bg);border-radius:8px">
+              <div>
+                <div class="font-bold text-sm">${l.nome}</div>
+                <div class="text-xs text-muted">${l.telefone||'sem telefone'}</div>
+              </div>
+              <span class="badge badge-yellow">${new Date(l.trial_expires_at).toLocaleDateString('pt-BR')}</span>
+            </div>
+          `).join('')}
+        ${alertas.bloqueadas.length > 0 ? `
+          <div class="card-title mt-3 mb-2" style="font-size:13px">🔴 Bloqueadas (${alertas.bloqueadas.length})</div>
+          ${alertas.bloqueadas.slice(0,5).map(l => `
+            <div class="flex items-center justify-between mb-1" style="padding:6px 8px">
+              <span class="text-sm">${l.nome}</span>
+              <span class="text-xs text-muted">${l.telefone||'—'}</span>
+            </div>
+          `).join('')}
+        ` : ''}
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">💰 Últimos Pagamentos</span></div>
+        ${pagamentosRecentes.length === 0 ? '<p class="text-sm text-muted">Nenhum pagamento registrado ainda</p>' :
+          pagamentosRecentes.slice(0,8).map(p => `
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <div class="font-bold text-sm">${p.lojas?.nome || '—'}</div>
+                <div class="text-xs text-muted">${new Date(p.pago_em).toLocaleDateString('pt-BR')}</div>
+              </div>
+              <span class="font-bold" style="color:var(--success)">${fmtR(p.valor)}</span>
+            </div>
+          `).join('')}
       </div>
     </div>
 
