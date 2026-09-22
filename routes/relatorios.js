@@ -173,4 +173,73 @@ router.post('/crediario/:id/pagar', verificarPermissao('crediario'), async (req,
   }
 });
 
+/**
+ * GET /api/relatorios/giro-estoque
+ * Curva ABC (Pareto) dos últimos N dias (padrão 90): classifica cada
+ * produto em A/B/C pela participação acumulada no faturamento, e lista
+ * separadamente os produtos sem nenhuma venda no período (candidatos a
+ * promoção/liquidação — capital parado em estoque).
+ */
+router.get('/giro-estoque', verificarPermissao('relatorios'), async (req, res) => {
+  try {
+    const dias = Math.min(Number(req.query.dias) || 90, 365);
+    const desde = new Date(Date.now() - dias * 86400000).toISOString();
+
+    const { data: itens } = await supabase.from('venda_itens')
+      .select('nome_produto, quantidade, subtotal, produto_id, vendas!inner(loja_id, status, criado_em)')
+      .eq('vendas.loja_id', req.user.loja_id).eq('vendas.status', 'finalizada')
+      .gte('vendas.criado_em', desde);
+
+    const vendidos = {};
+    (itens || []).forEach(i => {
+      const chave = i.produto_id || i.nome_produto;
+      if (!vendidos[chave]) vendidos[chave] = { produto_id: i.produto_id, nome: i.nome_produto, qtd: 0, total: 0 };
+      vendidos[chave].qtd += i.quantidade;
+      vendidos[chave].total += i.subtotal;
+    });
+
+    const lista = Object.values(vendidos).sort((a, b) => b.total - a.total);
+    const totalGeral = lista.reduce((s, p) => s + p.total, 0);
+
+    let acumulado = 0;
+    const curvaAbc = lista.map(p => {
+      acumulado += p.total;
+      const pctAcumulado = totalGeral > 0 ? (acumulado / totalGeral) * 100 : 0;
+      const classe = pctAcumulado <= 80 ? 'A' : pctAcumulado <= 95 ? 'B' : 'C';
+      return { ...p, pct_acumulado: Number(pctAcumulado.toFixed(1)), classe };
+    });
+
+    // Produtos ativos que NÃO venderam nada no período (estoque parado)
+    const idsComVenda = new Set(lista.map(p => p.produto_id).filter(Boolean));
+    const { data: todosProdutos } = await supabase.from('produtos')
+      .select('id, nome, preco_custo, variacoes(estoque)')
+      .eq('loja_id', req.user.loja_id).eq('ativo', true);
+
+    const semVenda = (todosProdutos || [])
+      .filter(p => !idsComVenda.has(p.id))
+      .map(p => ({
+        produto_id: p.id, nome: p.nome,
+        estoque_total: (p.variacoes || []).reduce((s, v) => s + (v.estoque || 0), 0),
+        valor_parado: (p.variacoes || []).reduce((s, v) => s + (v.estoque || 0), 0) * (p.preco_custo || 0)
+      }))
+      .filter(p => p.estoque_total > 0)
+      .sort((a, b) => b.valor_parado - a.valor_parado);
+
+    res.json({
+      periodo_dias: dias,
+      curva_abc: curvaAbc,
+      produtos_sem_venda: semVenda,
+      resumo: {
+        classe_a: curvaAbc.filter(p => p.classe === 'A').length,
+        classe_b: curvaAbc.filter(p => p.classe === 'B').length,
+        classe_c: curvaAbc.filter(p => p.classe === 'C').length,
+        sem_venda: semVenda.length,
+        valor_parado_total: semVenda.reduce((s, p) => s + p.valor_parado, 0)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
