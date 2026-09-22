@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 const { verificarPlano } = require('./middleware/plano');
 const { authMiddleware } = require('./middleware/auth');
 const { verificarPermissao } = require('./middleware/permissao');
+const { requireSuperAdmin } = require('./middleware/superAdmin');
 
 const app = express();
 
@@ -56,6 +57,10 @@ app.use('/api/relatorios', authMiddleware, verificarPlano, require('./routes/rel
 
 // extras.js aplica authMiddleware e verificarPermissao internamente, rota a rota
 app.use('/api', require('./routes/extras'));
+
+// Painel do super admin da PLATAFORMA (você) — vê e gerencia todas as lojas.
+// Sem verificarPlano aqui: seu acesso não depende do status de nenhuma loja.
+app.use('/api/admin', authMiddleware, requireSuperAdmin, require('./routes/admin'));
 
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Rota não encontrada' }));
