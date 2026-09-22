@@ -129,4 +129,27 @@ router.get('/categorias/lista', async (req, res) => {
   res.json(data || []);
 });
 
+// GET /api/produtos/buscar-codigo/:codigo — usado pelo leitor de código de
+// barras no PDV: aponta a câmera/scanner, o campo já busca e adiciona ao carrinho
+router.get('/buscar-codigo/:codigo', async (req, res) => {
+  const { data, error } = await supabase.from('variacoes')
+    .select('id, tamanho, cor, estoque, codigo_barras, produtos!inner(id, nome, preco_venda, loja_id, ativo)')
+    .eq('codigo_barras', req.params.codigo)
+    .eq('produtos.loja_id', req.user.loja_id)
+    .maybeSingle();
+
+  if (error || !data) return res.status(404).json({ error: 'Produto não encontrado para esse código' });
+  if (!data.produtos.ativo) return res.status(404).json({ error: 'Produto inativo' });
+
+  res.json({
+    produto_id: data.produtos.id,
+    variacao_id: data.id,
+    nome: data.produtos.nome,
+    preco_venda: data.produtos.preco_venda,
+    tamanho: data.tamanho,
+    cor: data.cor,
+    estoque: data.estoque
+  });
+});
+
 module.exports = router;
