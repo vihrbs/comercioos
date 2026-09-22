@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../utils/supabase');
-const { authMiddleware } = require('../middleware/auth');
+const { verificarPermissao } = require('../middleware/permissao');
 
-router.use(authMiddleware);
+// authMiddleware e verificarPlano já são aplicados em server.js.
+// Aqui dentro cada rota exige o módulo certo, já que esse arquivo atende
+// dashboard, relatórios e crediário — telas diferentes do front.
 
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard', verificarPermissao('dashboard'), async (req, res) => {
   try {
     const loja_id = req.user.loja_id;
     const hoje = new Date().toISOString().split('T')[0];
@@ -66,7 +68,7 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
-router.get('/vendas-periodo', async (req, res) => {
+router.get('/vendas-periodo', verificarPermissao('relatorios'), async (req, res) => {
   try {
     const { data_inicio, data_fim } = req.query;
     const { data: vendas } = await supabase.from('vendas')
@@ -98,7 +100,7 @@ router.get('/vendas-periodo', async (req, res) => {
   }
 });
 
-router.get('/clientes-top', async (req, res) => {
+router.get('/clientes-top', verificarPermissao('relatorios'), async (req, res) => {
   const { data } = await supabase.from('clientes')
     .select('nome, telefone, total_compras, num_compras, pontos, ultima_compra')
     .eq('loja_id', req.user.loja_id).eq('ativo', true)
@@ -106,7 +108,7 @@ router.get('/clientes-top', async (req, res) => {
   res.json(data || []);
 });
 
-router.get('/crediario', async (req, res) => {
+router.get('/crediario', verificarPermissao('crediario'), async (req, res) => {
   const { status } = req.query;
   let query = supabase.from('crediario')
     .select('*, clientes(nome, telefone), vendas(numero)')
@@ -117,7 +119,7 @@ router.get('/crediario', async (req, res) => {
 });
 
 // POST /api/relatorios/crediario/:id/pagar — registra pagamento parcial ou total
-router.post('/crediario/:id/pagar', async (req, res) => {
+router.post('/crediario/:id/pagar', verificarPermissao('crediario'), async (req, res) => {
   try {
     const { id } = req.params;
     const { valor, forma_pagamento, quitar } = req.body;
@@ -144,11 +146,10 @@ router.post('/crediario/:id/pagar', async (req, res) => {
       pago: novoPago,
       status: novoStatus,
       parcelas_pagas: novasParcPagas
-    }).eq('id', id);
+    }).eq('id', id).eq('loja_id', loja_id);
 
     if (updErr) throw updErr;
 
-    // Registra como movimentação financeira
     try {
       await supabase.from('movimentacoes').insert({
         loja_id,
@@ -158,13 +159,13 @@ router.post('/crediario/:id/pagar', async (req, res) => {
         valor,
         forma_pagamento: forma_pagamento || 'dinheiro'
       });
-    } catch (_) {} // não bloqueia se movimentações não existir
+    } catch (_) {}
 
     res.json({
       success: true,
       novo_saldo: novoSaldo,
       status: novoStatus,
-      message: quitado ? 'Crediário quitado com sucesso!' : `Pagamento de R$${valor.toFixed(2).replace('.',',')} registrado`
+      message: quitado ? 'Crediário quitado com sucesso!' : `Pagamento de R$${valor.toFixed(2).replace('.', ',')} registrado`
     });
   } catch (err) {
     console.error('Erro pagamento crediário:', err);
