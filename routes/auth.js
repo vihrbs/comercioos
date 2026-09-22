@@ -7,6 +7,29 @@ const { authMiddleware } = require('../middleware/auth');
 
 const TODOS_MODULOS = ['dashboard','pdv','produtos','estoque','clientes','pedidos','vendas','financeiro','crediario','funcionarios','comissoes','relatorios','configuracoes'];
 
+// Categorias padrão por TIPO DE PEÇA (não por gênero) — toda loja começa
+// com elas, e login de loja antiga também garante que existam.
+const CATEGORIAS_PADRAO = [
+  'Camisetas', 'Camisas', 'Calças', 'Vestidos', 'Blusas',
+  'Shorts e Bermudas', 'Jaquetas e Casacos', 'Tênis', 'Sapatos', 'Sandálias',
+  'Bolsas', 'Acessórios'
+];
+
+// Cria as categorias padrão que ainda não existem pra essa loja — nunca
+// duplica (compara por nome, sem diferenciar maiúscula/minúscula).
+async function garantirCategoriasDefault(loja_id) {
+  try {
+    const { data: existentes } = await supabase.from('categorias').select('nome').eq('loja_id', loja_id);
+    const nomesExistentes = new Set((existentes || []).map(c => c.nome.toLowerCase()));
+    const faltando = CATEGORIAS_PADRAO.filter(n => !nomesExistentes.has(n.toLowerCase()));
+    if (faltando.length > 0) {
+      await supabase.from('categorias').insert(faltando.map(n => ({ loja_id, nome: n })));
+    }
+  } catch (e) {
+    console.error('Erro ao garantir categorias padrão:', e.message);
+  }
+}
+
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
@@ -37,9 +60,7 @@ router.post('/register', async (req, res) => {
     if (userErr) throw userErr;
 
     // Categorias padrão
-    await supabase.from('categorias').insert(
-      ['Feminino','Masculino','Infantil','Acessórios','Calçados'].map(n => ({ loja_id: loja.id, nome: n }))
-    );
+    await garantirCategoriasDefault(loja.id);
 
     const token = jwt.sign(
       { id: usuario.id, loja_id: loja.id, nome, email, perfil: 'admin' },
@@ -84,6 +105,10 @@ router.post('/login', async (req, res) => {
     if (!senhaOk) return res.status(401).json({ error: 'Credenciais inválidas' });
 
     await supabase.from('usuarios').update({ ultimo_acesso: new Date() }).eq('id', usuario.id);
+
+    // Garante que as categorias padrão existam, mesmo pra loja antiga que
+    // já tinha outro conjunto de categorias — só adiciona o que falta.
+    await garantirCategoriasDefault(usuario.loja_id);
 
     // Busca permissões do banco — SEMPRE (nunca só do perfil)
     let permissoes = TODOS_MODULOS; // padrão admin
