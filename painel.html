@@ -1311,7 +1311,7 @@ async function renderDashboard() {
             <thead><tr><th>Nº</th><th>Cliente</th><th>Total</th><th>Pagamento</th><th>Status</th></tr></thead>
             <tbody>
               ${(data.ultimas_vendas||[]).map(v => `
-                <tr>
+                <tr onclick="verVenda('${v.id}')" style="cursor:pointer" title="Ver comanda">
                   <td><span class="font-bold">${v.numero}</span></td>
                   <td>${v.clientes?.nome || '—'}</td>
                   <td class="font-bold">${fmtR(v.total)}</td>
@@ -1840,11 +1840,32 @@ async function finalizarVenda() {
   }
 }
 
+// ---- WhatsApp via link wa.me — sem API, sem cadastro, sem custo ----
+// Abre o WhatsApp (app ou web) já com o número e a mensagem prontos;
+// quem manda ainda precisa clicar em "Enviar" do outro lado.
+function telefoneParaWhatsapp(telefone) {
+  if (!telefone) return null;
+  let digitos = String(telefone).replace(/\D/g, '');
+  if (!digitos) return null;
+  if (digitos.length <= 11) digitos = '55' + digitos; // assume Brasil se não tiver código do país
+  return digitos;
+}
+
+function abrirWhatsapp(telefone, mensagem) {
+  const numero = telefoneParaWhatsapp(telefone);
+  if (!numero) return toast('Esse cliente não tem telefone cadastrado', 'error');
+  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`, '_blank');
+}
+
 function openRecibo(venda, total, pagamentos, clienteId) {
   const cliente = STATE.clientes.find(c => c.id === clienteId);
   const linhasPagamento = (pagamentos || []).map(p => `
     <div class="total-row"><span>${PAGAMENTO_ICONS[p.forma_pagamento]||''} ${PAGAMENTO_LABELS[p.forma_pagamento]||p.forma_pagamento}</span><span class="font-bold">R$ ${p.valor.toFixed(2).replace('.',',')}</span></div>
   `).join('');
+
+  const nomeLoja = STATE.loja?.nome || 'nossa loja';
+  const resumoPagamento = (pagamentos || []).map(p => `${PAGAMENTO_LABELS[p.forma_pagamento]||p.forma_pagamento}: R$ ${p.valor.toFixed(2).replace('.',',')}`).join(', ');
+  const mensagemWhats = `Olá${cliente ? ' ' + cliente.nome.split(' ')[0] : ''}! 🛍️ Aqui está o comprovante da sua compra na ${nomeLoja}:\n\n🧾 Venda ${venda.numero}\n💳 ${resumoPagamento}\n💰 Total: R$ ${total.toFixed(2).replace('.',',')}\n\nObrigado pela compra! 💜`;
 
   openModal('🧾 Comprovante de Venda', `
     <div style="text-align:center;padding:8px 0 20px">
@@ -1858,7 +1879,10 @@ function openRecibo(venda, total, pagamentos, clienteId) {
       <div style="border-top:2px dashed var(--border);margin:12px 0"></div>
       <div class="total-row big"><span>Total</span><span>R$ ${total.toFixed(2).replace('.',',')}</span></div>
     </div>
-  `, `<button class="btn btn-primary" onclick="closeModal()">Fechar</button>`, 'modal-sm');
+  `, `
+    ${cliente?.telefone ? `<button class="btn btn-success" onclick='abrirWhatsapp(${JSON.stringify(cliente.telefone)}, ${JSON.stringify(mensagemWhats)})'>📱 Enviar por WhatsApp</button>` : ''}
+    <button class="btn btn-primary" onclick="closeModal()">Fechar</button>
+  `, 'modal-sm');
 }
 
 
@@ -2196,14 +2220,29 @@ function ajustarEstoque(prodId, varId, atual) {
   `);
 }
 
-function confirmarAjuste(prodId, varId) {
+async function confirmarAjuste(prodId, varId) {
   const novoEst = parseInt(document.getElementById('novo-estoque').value);
+  const motivo = document.getElementById('motivo-ajuste').value;
   const prod = STATE.produtos.find(p => p.id === prodId);
-  const variac = prod?.variacoes?.find(v => v.id === varId);
-  if (variac) { variac.estoque = novoEst; }
-  closeModal();
-  toast('Estoque atualizado!', 'success');
-  renderEstoque();
+  if (!prod) return;
+
+  // O backend substitui todas as variações do produto de uma vez só —
+  // então mandamos a lista inteira, só trocando o estoque da que foi ajustada.
+  const variacoesAtualizadas = (prod.variacoes || []).map(v => ({
+    tamanho: v.tamanho, cor: v.cor,
+    estoque: v.id === varId ? novoEst : v.estoque,
+    estoque_minimo: v.estoque_minimo,
+    codigo_barras: v.codigo_barras
+  }));
+
+  try {
+    await api('PUT', `/api/produtos/${prodId}`, { variacoes: variacoesAtualizadas });
+    closeModal();
+    toast(`Estoque atualizado! (${motivo})`, 'success');
+    renderEstoque();
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
 // ============================================================
@@ -2303,6 +2342,7 @@ async function salvarCliente(id) {
     email: document.getElementById('cli-email')?.value || null,
     telefone: document.getElementById('cli-tel')?.value || null,
     data_nascimento: document.getElementById('cli-nasc')?.value || null,
+    genero: document.getElementById('cli-genero')?.value || null,
     observacoes: document.getElementById('cli-obs')?.value || null
   };
   try {
@@ -2345,7 +2385,7 @@ function verCliente(id) {
     <div class="card-title mb-2">Últimas Compras</div>
     ${vendasCliente.length === 0 ? '<p class="text-muted text-sm">Sem compras</p>' :
     `<table><thead><tr><th>Nº</th><th>Total</th><th>Pagamento</th><th>Data</th></tr></thead>
-    <tbody>${vendasCliente.slice(0,5).map(v => `<tr>
+    <tbody>${vendasCliente.slice(0,5).map(v => `<tr onclick="verVenda('${v.id}')" style="cursor:pointer" title="Ver comanda">
       <td class="font-bold">${v.numero}</td>
       <td>${fmtR(v.total)}</td>
       <td>${pagBadge(v.forma_pagamento)}</td>
@@ -2463,35 +2503,85 @@ function renderVendas() {
   `);
 }
 
-function verVenda(id) {
-  const v = STATE.vendas.find(x => x.id === id);
+function reenviarReciboWhatsapp(v) {
   const fmtR = val => `R$ ${(val||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
-  openModal(`🧾 Venda ${v.numero}`, `
-    <div class="flex gap-3 mb-4">
-      <div style="flex:1;background:var(--bg);padding:14px;border-radius:10px">
+  const nomeLoja = STATE.loja?.nome || 'nossa loja';
+  const nomeCliente = (v.clientes?.nome || '').split(' ')[0];
+  const label = PAGAMENTO_LABELS[v.forma_pagamento] || v.forma_pagamento;
+
+  const mensagem = `Olá${nomeCliente ? ' ' + nomeCliente : ''}! 🛍️ Aqui está o comprovante da sua compra na ${nomeLoja}:\n\n🧾 Venda ${v.numero}\n💳 ${label}\n💰 Total: R$ ${fmtR(v.total)}\n\nObrigado pela compra! 💜`;
+  abrirWhatsapp(v.clientes?.telefone, mensagem);
+}
+
+// Comanda de venda — funciona de qualquer tela (Dashboard, Vendas, Clientes,
+// Trocas), sempre busca fresco da API, mostra os itens e a data/hora exatas.
+async function verVenda(id) {
+  const fmtR = val => `R$ ${(val||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+  openModal('🧾 Comanda', '<div style="text-align:center;padding:24px"><div class="spinner"></div></div>', '', 'modal-md');
+
+  let v;
+  try {
+    v = await api('GET', `/api/vendas/${id}`);
+  } catch (e) {
+    document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">${e.message}</p>`;
+    return;
+  }
+
+  const dataHora = new Date(v.criado_em);
+  const pagamentos = (v.venda_pagamentos && v.venda_pagamentos.length > 0)
+    ? v.venda_pagamentos
+    : [{ forma_pagamento: v.forma_pagamento, valor: v.total }];
+
+  document.getElementById('modal-title').textContent = `🧾 Comanda — ${v.numero}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="flex items-center justify-between mb-3" style="background:var(--bg);padding:10px 14px;border-radius:8px">
+      <div>
+        <div class="text-xs text-muted">Data e hora</div>
+        <div class="font-bold">${dataHora.toLocaleDateString('pt-BR')} às ${dataHora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+      <div style="text-align:right">
         <div class="text-xs text-muted">Cliente</div>
-        <div class="font-bold">${v.clientes?.nome||'Consumidor'}</div>
+        <div class="font-bold">${v.clientes?.nome || 'Consumidor'}</div>
       </div>
-      <div style="flex:1;background:var(--bg);padding:14px;border-radius:10px">
+      <div style="text-align:right">
         <div class="text-xs text-muted">Vendedor</div>
-        <div class="font-bold">${v.funcionarios?.nome||'—'}</div>
-      </div>
-      <div style="flex:1;background:var(--bg);padding:14px;border-radius:10px">
-        <div class="text-xs text-muted">Pagamento</div>
-        <div>${pagBadge(v.forma_pagamento)}</div>
+        <div class="font-bold">${v.funcionarios?.nome || '—'}</div>
       </div>
     </div>
-    <div class="total-row"><span>Subtotal</span><span>${fmtR(v.subtotal)}</span></div>
-    ${v.desconto_valor > 0 ? `<div class="total-row" style="color:var(--success)"><span>Desconto</span><span>−${fmtR(v.desconto_valor)}</span></div>` : ''}
-    <div class="total-row big" style="border-top:2px solid var(--border);padding-top:10px;margin-top:6px"><span>Total</span><span>${fmtR(v.total)}</span></div>
-    <p class="text-xs text-muted mt-3">${new Date(v.criado_em).toLocaleString('pt-BR')}</p>
-  `, `
+
+    <div class="card-title mb-2" style="font-size:14px">🛍️ O que foi comprado</div>
+    <table>
+      <thead><tr><th>Produto</th><th>Qtd</th><th>Preço</th><th>Subtotal</th></tr></thead>
+      <tbody>
+        ${(v.venda_itens||[]).map(i => `
+          <tr>
+            <td>
+              <div class="font-bold text-sm">${i.nome_produto}</div>
+              <div class="text-xs text-muted">${[i.tamanho,i.cor].filter(Boolean).join(' • ')}</div>
+            </td>
+            <td>${i.quantidade}</td>
+            <td class="text-sm text-muted">${fmtR(i.preco_unitario)}</td>
+            <td class="font-bold">${fmtR(i.subtotal)}</td>
+          </tr>
+        `).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">Sem detalhes de itens</td></tr>'}
+      </tbody>
+    </table>
+
+    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+      ${pagamentos.map(p => `<div class="total-row"><span>${PAGAMENTO_ICONS[p.forma_pagamento]||''} ${PAGAMENTO_LABELS[p.forma_pagamento]||p.forma_pagamento}</span><span class="font-bold">${fmtR(p.valor)}</span></div>`).join('')}
+      ${v.desconto_valor > 0 ? `<div class="total-row" style="color:var(--success)"><span>Desconto</span><span>−${fmtR(v.desconto_valor)}</span></div>` : ''}
+      <div class="total-row big" style="border-top:2px solid var(--border);padding-top:8px;margin-top:6px"><span>Total</span><span>${fmtR(v.total)}</span></div>
+    </div>
+    ${v.status === 'cancelada' ? '<p class="text-xs mt-2" style="color:var(--danger)">Esta venda foi cancelada</p>' : ''}
+  `;
+  document.getElementById('modal-footer').innerHTML = `
     ${v.status !== 'cancelada' ? `
       <button class="btn btn-outline" onclick="modalCorrigirPagamento('${v.id}','${v.forma_pagamento}')">✏️ Corrigir pagamento</button>
       <button class="btn btn-outline" onclick="closeModal();navigate('trocas');setTimeout(()=>modalNovaTroca('${v.numero}'),200)">🔄 Trocar/Devolver</button>
+      ${v.clientes?.telefone ? `<button class="btn btn-success" onclick='reenviarReciboWhatsapp(${JSON.stringify(v)})'>📱 WhatsApp</button>` : ''}
     ` : ''}
     <button class="btn btn-primary" onclick="closeModal()">Fechar</button>
-  `, 'modal-sm');
+  `;
 }
 
 function modalCorrigirPagamento(vendaId, formaAtual) {
@@ -2565,7 +2655,7 @@ async function renderTrocas() {
             <tbody>
               ${trocas.map(t => `
                 <tr>
-                  <td class="font-bold">${t.vendas?.numero || '—'}</td>
+                  <td class="font-bold" style="${t.venda_original_id?'cursor:pointer;color:var(--primary)':''}" ${t.venda_original_id?`onclick="verVenda('${t.venda_original_id}')" title="Ver comanda original"`:''}>${t.vendas?.numero || '—'}</td>
                   <td>${t.clientes?.nome || 'Consumidor'}</td>
                   <td><span class="badge ${tipoBadge[t.tipo]||'badge-gray'}">${tipoLabel[t.tipo]||t.tipo}</span></td>
                   <td>${fmtR(t.valor_devolvido)}</td>
@@ -2939,7 +3029,7 @@ function openFuncModal(id) {
   `);
 }
 
-function salvarFunc(id) {
+async function salvarFunc(id) {
   const nome = document.getElementById('func-nome').value;
   if (!nome) return toast('Nome obrigatório', 'error');
   const dados = {
@@ -2951,15 +3041,19 @@ function salvarFunc(id) {
     meta_mensal: parseFloat(document.getElementById('func-meta').value||0),
     data_admissao: document.getElementById('func-admissao').value
   };
-  if (id) {
-    const idx = STATE.funcionarios.findIndex(f => f.id === id);
-    if (idx !== -1) STATE.funcionarios[idx] = { ...STATE.funcionarios[idx], ...dados };
-    toast('Funcionário atualizado!', 'success');
-  } else {
-    STATE.funcionarios.push({ id: 'f' + Date.now(), ...dados, ativo: true });
-    toast('Funcionário cadastrado!', 'success');
+  try {
+    if (id) {
+      await api('PUT', `/api/operacoes/funcionarios/${id}`, dados);
+      toast('Funcionário atualizado!', 'success');
+    } else {
+      await api('POST', '/api/operacoes/funcionarios', dados);
+      toast('Funcionário cadastrado!', 'success');
+    }
+    closeModal();
+    renderFuncionarios();
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
   }
-  closeModal(); renderFuncionarios();
 }
 
 // ============================================================
@@ -3289,13 +3383,29 @@ async function renderCrediario() {
               <td class="text-muted">${c.parcelas_pagas||0}/${c.parcelas||1}</td>
               <td class="text-sm">${c.vencimento ? new Date(c.vencimento).toLocaleDateString('pt-BR') : '—'}</td>
               <td><span class="badge ${c.status==='quitado'?'badge-green':c.status==='inadimplente'?'badge-red':'badge-yellow'}">${c.status}</span></td>
-              <td>${c.status!=='quitado'?`<button class="btn btn-success btn-sm" onclick="modalPagamento('${c.id}',${c.saldo||0},${c.parcelas||1},${c.parcelas_pagas||0})">💰 Receber</button>`:'—'}</td>
+              <td>
+                <div class="flex gap-1">
+                  ${c.status!=='quitado'?`<button class="btn btn-success btn-sm" onclick="modalPagamento('${c.id}',${c.saldo||0},${c.parcelas||1},${c.parcelas_pagas||0})">💰 Receber</button>`:''}
+                  ${c.status!=='quitado' && c.clientes?.telefone ? `<button class="btn btn-outline btn-sm" onclick='cobrarCrediarioWhatsapp(${JSON.stringify(c)})'>📱</button>` : ''}
+                </div>
+              </td>
             </tr>`).join('')}
           </tbody>
         </table></div>`
       }
     </div>
   `);
+}
+
+function cobrarCrediarioWhatsapp(c) {
+  const fmtR = v => `R$ ${(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+  const nomeLoja = STATE.loja?.nome || 'nossa loja';
+  const nomeCliente = (c.clientes?.nome || '').split(' ')[0];
+  const vencimentoTxt = c.vencimento ? new Date(c.vencimento).toLocaleDateString('pt-BR') : 'em aberto';
+
+  const mensagem = `Olá${nomeCliente ? ' ' + nomeCliente : ''}! 👋 Passando pra lembrar do seu crediário na ${nomeLoja}.\n\n💰 Saldo em aberto: ${fmtR(c.saldo)}\n📅 Vencimento: ${vencimentoTxt}\n\nQualquer dúvida, é só responder aqui. Obrigado! 💜`;
+
+  abrirWhatsapp(c.clientes?.telefone, mensagem);
 }
 
 function modalPagamento(id, saldoAtual, totalParcelas, parcelasPagas) {
@@ -3770,18 +3880,29 @@ function renderConfiguracoes() {
   `);
 }
 
-function adicionarCategoria() {
-  const val = document.getElementById('nova-cat').value.trim();
-  if (!val) return toast('Digite o nome da categoria', 'error');
-  STATE.categorias.push({ id: 'c' + Date.now(), nome: val });
-  document.getElementById('nova-cat').value = '';
-  toast('Categoria adicionada!', 'success');
-  renderConfiguracoes();
+async function adicionarCategoria() {
+  const nome = document.getElementById('nova-cat').value.trim();
+  if (!nome) return toast('Digite o nome da categoria', 'error');
+  try {
+    await api('POST', '/api/categorias', { nome });
+    document.getElementById('nova-cat').value = '';
+    toast('Categoria adicionada!', 'success');
+    const cats = await api('GET', '/api/categorias');
+    STATE.categorias = Array.isArray(cats) ? cats : [];
+    renderConfiguracoes();
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
-function removerCategoria(id) {
-  STATE.categorias = STATE.categorias.filter(c => c.id !== id);
-  renderConfiguracoes();
+async function removerCategoria(id) {
+  try {
+    await api('DELETE', `/api/categorias/${id}`);
+    STATE.categorias = STATE.categorias.filter(c => c.id !== id);
+    renderConfiguracoes();
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
 }
 
 // ============================================================
