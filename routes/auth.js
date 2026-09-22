@@ -34,8 +34,8 @@ async function garantirCategoriasDefault(loja_id) {
 router.post('/register', async (req, res) => {
   try {
     const { nome_loja, nome, email, senha, telefone, tipo } = req.body;
-    if (!nome_loja || !nome || !email || !senha) {
-      return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+    if (!nome_loja || !nome || !email || !senha || !telefone) {
+      return res.status(400).json({ error: 'Campos obrigatórios faltando (nome da loja, nome, email, telefone e senha)' });
     }
 
     const { data: existente } = await supabase
