@@ -50,6 +50,7 @@ app.use('/api/clientes', authMiddleware, verificarPlano, verificarPermissao('cli
 // dashboard + relatorios + crediario). A checagem de permissão fica dentro
 // de cada arquivo, rota a rota — só authMiddleware/verificarPlano aqui.
 app.use('/api/vendas', authMiddleware, verificarPlano, require('./routes/vendas'));
+app.use('/api/trocas', authMiddleware, verificarPlano, require('./routes/trocas'));
 app.use('/api/operacoes', authMiddleware, verificarPlano, require('./routes/operacoes'));
 app.use('/api/relatorios', authMiddleware, verificarPlano, require('./routes/relatorios'));
 
