@@ -107,4 +107,41 @@ router.get('/:id/crediario', async (req, res) => {
   res.json(data || []);
 });
 
+router.get('/:id/credito', async (req, res) => {
+  // Mesma checagem de posse antes de mostrar o histórico financeiro
+  const { data: cliente } = await supabase.from('clientes')
+    .select('id, saldo_credito').eq('id', req.params.id).eq('loja_id', req.user.loja_id).single();
+  if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado' });
+
+  const { data: historico } = await supabase.from('credito_historico')
+    .select('*').eq('cliente_id', req.params.id).eq('loja_id', req.user.loja_id)
+    .order('criado_em', { ascending: false });
+
+  res.json({ saldo_atual: cliente.saldo_credito || 0, historico: historico || [] });
+});
+
+// Ajuste manual de saldo de crédito (ex: cortesia, correção) — sempre com motivo
+router.post('/:id/credito/ajustar', async (req, res) => {
+  const { valor, motivo } = req.body;
+  if (!valor || valor === 0) return res.status(400).json({ error: 'Informe um valor diferente de zero' });
+
+  const { data: cliente } = await supabase.from('clientes')
+    .select('id, saldo_credito').eq('id', req.params.id).eq('loja_id', req.user.loja_id).single();
+  if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado' });
+
+  const novoSaldo = (cliente.saldo_credito || 0) + Number(valor);
+  if (novoSaldo < 0) return res.status(400).json({ error: 'Ajuste deixaria o saldo negativo' });
+
+  await supabase.from('clientes').update({ saldo_credito: novoSaldo })
+    .eq('id', req.params.id).eq('loja_id', req.user.loja_id);
+
+  await supabase.from('credito_historico').insert({
+    loja_id: req.user.loja_id, cliente_id: req.params.id,
+    tipo: valor > 0 ? 'credito' : 'debito', valor: Math.abs(valor),
+    origem: 'ajuste_manual', saldo_apos: novoSaldo
+  });
+
+  res.json({ success: true, novo_saldo: novoSaldo, motivo: motivo || null });
+});
+
 module.exports = router;
