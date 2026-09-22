@@ -461,6 +461,10 @@
         <input type="email" id="reg-email" placeholder="seu@email.com">
       </div>
       <div class="form-group">
+        <label>Telefone *</label>
+        <input type="text" id="reg-telefone" placeholder="(11) 99999-9999">
+      </div>
+      <div class="form-group">
         <label>Senha</label>
         <input type="password" id="reg-senha" placeholder="Mínimo 6 caracteres">
       </div>
@@ -810,13 +814,34 @@ async function doLogin() {
 }
 
 async function doRegister() {
-  const nome_loja = document.getElementById('reg-loja').value;
-  const nome = document.getElementById('reg-nome').value;
-  const email = document.getElementById('reg-email').value;
+  const nome_loja = document.getElementById('reg-loja').value.trim();
+  const nome = document.getElementById('reg-nome').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const telefone = document.getElementById('reg-telefone').value.trim();
   const senha = document.getElementById('reg-senha').value;
-  if (!nome_loja || !nome || !email || !senha) return toast('Preencha todos os campos', 'error');
-  toast('Conta criada! Use o demo para testar.', 'info');
-  switchAuthTab('login');
+  if (!nome_loja || !nome || !email || !senha || !telefone) return toast('Preencha todos os campos obrigatórios', 'error');
+  if (senha.length < 6) return toast('Senha precisa ter no mínimo 6 caracteres', 'error');
+
+  const btn = document.querySelector('#tab-register .btn-primary');
+  if (btn) { btn.textContent = 'Criando conta...'; btn.disabled = true; }
+
+  try {
+    const res = await fetch(API + '/api/auth/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome_loja, nome, email, senha, telefone: telefone || null })
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || 'Erro ao criar conta', 'error'); return; }
+
+    localStorage.setItem('comercioos_token', data.token);
+    STATE.token = data.token; STATE.user = data.usuario; STATE.loja = data.loja;
+    toast(`Conta criada! Bem-vindo, ${nome.split(' ')[0]}! 🎉`, 'success');
+    startApp();
+  } catch (e) {
+    toast('Erro ao conectar ao servidor. Verifique sua conexão.', 'error');
+  } finally {
+    if (btn) { btn.textContent = 'Criar minha conta'; btn.disabled = false; }
+  }
 }
 
 function toggleSidebar() {
