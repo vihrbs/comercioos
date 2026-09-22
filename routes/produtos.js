@@ -1,13 +1,38 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../utils/supabase');
-const { authMiddleware } = require('../middleware/auth');
 
-router.use(authMiddleware);
+// authMiddleware, verificarPlano e verificarPermissao('produtos') já são
+// aplicados em server.js antes de montar essa rota.
+
+const CAMPOS_PRODUTO = [
+  'nome', 'marca', 'categoria_id', 'genero', 'preco_venda', 'preco_custo', 'descricao', 'ativo'
+];
+
+function sanitizarProduto(body) {
+  const limpo = {};
+  CAMPOS_PRODUTO.forEach(campo => {
+    if (body[campo] !== undefined) limpo[campo] = body[campo];
+  });
+  return limpo;
+}
+
+function sanitizarVariacao(v) {
+  return {
+    tamanho: v.tamanho || null,
+    cor: v.cor || null,
+    estoque: Number(v.estoque) || 0,
+    estoque_minimo: Number(v.estoque_minimo) || 5,
+    codigo_barras: v.codigo_barras || null
+  };
+}
 
 router.get('/', async (req, res) => {
   try {
-    const { search, categoria_id, genero, ativo, page = 1, limit = 50 } = req.query;
+    const { search, categoria_id, genero, ativo, page = 1 } = req.query;
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const paginaAtual = Math.max(1, Number(page) || 1);
+
     let query = supabase.from('produtos')
       .select('*, categorias(nome), variacoes(*)', { count: 'exact' })
       .eq('loja_id', req.user.loja_id)
@@ -18,12 +43,12 @@ router.get('/', async (req, res) => {
     if (genero) query = query.eq('genero', genero);
     if (ativo !== undefined) query = query.eq('ativo', ativo === 'true');
 
-    const from = (page - 1) * limit;
+    const from = (paginaAtual - 1) * limit;
     query = query.range(from, from + limit - 1);
 
     const { data, error, count } = await query;
     if (error) throw error;
-    res.json({ data, total: count, page: Number(page), limit: Number(limit) });
+    res.json({ data, total: count, page: paginaAtual, limit });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -39,14 +64,21 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { variacoes, ...produtoData } = req.body;
+    const { variacoes } = req.body;
+    const produtoData = sanitizarProduto(req.body);
+
+    if (!produtoData.nome) return res.status(400).json({ error: 'Nome do produto é obrigatório' });
+    if (!produtoData.preco_venda || produtoData.preco_venda <= 0) {
+      return res.status(400).json({ error: 'Preço de venda deve ser maior que zero' });
+    }
+
     const { data: produto, error } = await supabase.from('produtos')
       .insert({ ...produtoData, loja_id: req.user.loja_id }).select().single();
     if (error) throw error;
 
     if (variacoes && variacoes.length > 0) {
       await supabase.from('variacoes').insert(
-        variacoes.map(v => ({ ...v, produto_id: produto.id }))
+        variacoes.map(v => ({ ...sanitizarVariacao(v), produto_id: produto.id }))
       );
     }
 
@@ -60,17 +92,20 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { variacoes, ...produtoData } = req.body;
+    const { variacoes } = req.body;
+    const produtoData = sanitizarProduto(req.body);
+
     const { data, error } = await supabase.from('produtos')
       .update({ ...produtoData, atualizado_em: new Date() })
       .eq('id', req.params.id).eq('loja_id', req.user.loja_id).select().single();
     if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Produto não encontrado' });
 
     if (variacoes) {
       await supabase.from('variacoes').delete().eq('produto_id', req.params.id);
       if (variacoes.length > 0) {
         await supabase.from('variacoes').insert(
-          variacoes.map(v => ({ ...v, produto_id: req.params.id }))
+          variacoes.map(v => ({ ...sanitizarVariacao(v), produto_id: req.params.id }))
         );
       }
     }
